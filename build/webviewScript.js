@@ -1,29 +1,101 @@
 (function () {
-    var _a, _b, _c;
+    console.log('Initializing webview script...');
     var vscode = acquireVsCodeApi();
-    var branchCount = 1;
-    (_a = document.getElementById('addBranch')) === null || _a === void 0 ? void 0 : _a.addEventListener('click', function () {
-        var _a;
-        branchCount++;
-        var branchDiv = document.createElement('div');
-        branchDiv.className = 'branch-input';
-        branchDiv.innerHTML = "\n            <label for=\"branch".concat(branchCount, "\">Branch ").concat(branchCount, ":</label>\n            <input type=\"text\" id=\"branch").concat(branchCount, "\" name=\"branch").concat(branchCount, "\" required>\n        ");
-        (_a = document.getElementById('branches')) === null || _a === void 0 ? void 0 : _a.appendChild(branchDiv);
-    });
-    (_b = document.getElementById('removeBranch')) === null || _b === void 0 ? void 0 : _b.addEventListener('click', function () {
-        var _a, _b;
-        if (branchCount > 1) {
-            (_b = (_a = document.getElementById('branches')) === null || _a === void 0 ? void 0 : _a.lastChild) === null || _b === void 0 ? void 0 : _b.remove();
-            branchCount--;
+    var formInitialized = false;
+    function validateForm(data) {
+        if (!data.versions || !data.cherryPickCommit) {
+            return { isValid: false, error: 'Versions and Cherry-pick branch are required' };
         }
-    });
-    (_c = document.getElementById('cherryPickForm')) === null || _c === void 0 ? void 0 : _c.addEventListener('submit', function (event) {
-        event.preventDefault();
-        var formData = new FormData(event.target);
-        var data = {};
-        formData.forEach(function (value, key) {
-            data[key] = value;
+        var hasNewRepoName = data.newRepoName.trim() !== '';
+        var hasRepoName = data.repoName.trim() !== '';
+        if (!hasNewRepoName && !hasRepoName) {
+            return { isValid: false, error: 'Please select a repository or enter a new repository name.' };
+        }
+        if (hasNewRepoName && hasRepoName) {
+            return { isValid: false, error: 'Please provide either a new repository name or select an existing one, not both.' };
+        }
+        return { isValid: true };
+    }
+    function initializeForm() {
+        if (formInitialized) {
+            console.log('Form already initialized');
+            return;
+        }
+        var form = document.getElementById('backportForm');
+        var submitButton = document.getElementById('submitButton');
+        var repoNameSelect = document.getElementById('repoName');
+        var newRepoNameInput = document.getElementById('newRepoName');
+        if (!form || !submitButton || !repoNameSelect || !newRepoNameInput) {
+            console.error('Required elements not found');
+            return;
+        }
+        console.log('Initializing form elements...');
+        // Event listener for repoName select
+        repoNameSelect.addEventListener('change', function () {
+            if (repoNameSelect.value) {
+                newRepoNameInput.disabled = true;
+            }
+            else {
+                newRepoNameInput.disabled = false;
+            }
         });
-        vscode.postMessage(data);
+        // Event listener for newRepoName input
+        newRepoNameInput.addEventListener('input', function () {
+            if (newRepoNameInput.value.trim()) {
+                repoNameSelect.disabled = true;
+            }
+            else {
+                repoNameSelect.disabled = false;
+            }
+        });
+        // Add click listener to submit button
+        submitButton.addEventListener('click', function () {
+            console.log('Submit button clicked');
+            try {
+                var formData = new FormData(form);
+                var data = {
+                    newRepoName: formData.get('newRepoName') || '',
+                    repoName: formData.get('repoName') || '',
+                    versions: formData.get('versions') || '',
+                    cherryPickCommit: formData.get('cherryPickCommit') || ''
+                };
+                console.log('Form data:', data);
+                var validation = validateForm(data);
+                if (!validation.isValid) {
+                    console.error('Validation failed:', validation.error);
+                    vscode.postMessage({
+                        type: 'error',
+                        payload: validation.error
+                    });
+                    return;
+                }
+                console.log('Sending validated data:', data);
+                vscode.postMessage({
+                    type: 'formSubmit',
+                    payload: data
+                });
+            }
+            catch (error) {
+                console.error('Error processing form:', error);
+                vscode.postMessage({
+                    type: 'error',
+                    payload: error instanceof Error ? error.message : 'Unknown error occurred'
+                });
+            }
+        });
+        formInitialized = true;
+        console.log('Form initialization complete');
+    }
+    // Initialize immediately if DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeForm);
+    }
+    else {
+        initializeForm();
+    }
+    // Send test message to verify communication
+    vscode.postMessage({
+        type: 'test',
+        payload: 'Script loaded and initialized'
     });
-}());
+})();
