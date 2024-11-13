@@ -3,42 +3,75 @@ import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import axios from 'axios';
 
+let workspacePath: string | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, your extension "backporter-x-5000" is now active!');
 
     const disposable = vscode.commands.registerCommand('backporter-x-5000.openWebview', () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return;
+        }
+        workspacePath = workspaceFolders[0].uri.fsPath;
+
+        console.log('Opening webview...');
         const panel = vscode.window.createWebviewPanel(
             'backporterX5000', 
             'Backporter X-5000', 
             vscode.ViewColumn.One, 
             {
                 enableScripts: true,
+                localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'build'))],
+                retainContextWhenHidden: true,
             }
         );
 
-        panel.webview.html = getWebviewContent(context, panel.webview);
+        panel.webview.html = getWebviewContentWithCSP(context, panel.webview);
+        console.log('Webview content set.');
 
         panel.webview.onDidReceiveMessage(async (message) => {
-            let repoName = message.repoName;
-            const newRepoName = message.newRepoName.trim();
+            console.log('Message received from webview:', message);
 
-            if (newRepoName) {
-                repoName = newRepoName;
-                const savedRepos = context.globalState.get<string[]>('savedRepos', []);
-                if (!savedRepos.includes(newRepoName)) {
-                    savedRepos.push(newRepoName);
-                    await context.globalState.update('savedRepos', savedRepos);
-                }
+            if (message.type === 'error') {
+                vscode.window.showErrorMessage(message.payload);
+                return;
             }
 
-            const versions = message.versions.split(',').map((v: string) => v.trim());
-            const cherryPickBranch = message.cherryPickBranch;
+            if (message.type === 'test') {
+                console.log('Test message received:', message.payload);
+                return;
+            }
 
-            for (const version of versions) {
-                const branchName = `cherry-pick-branch_${version}`;
-                const createBranch = await promptUser(`Create branch ${branchName}? Y / N`);
-                if (createBranch.toLowerCase() === 'y') {
-                    await createBranchAndCherryPick(repoName, version, cherryPickBranch, branchName);
+            if (message.type === 'formSubmit') {
+                if (!await validateGitRepo()) {
+                    return;
+                }
+
+                let repoName = message.payload.repoName;
+                const newRepoName = message.payload.newRepoName.trim();
+
+                if (newRepoName) {
+                    repoName = newRepoName;
+                    const savedRepos = context.globalState.get<string[]>('savedRepos', []);
+                    if (!savedRepos.includes(newRepoName)) {
+                        savedRepos.push(newRepoName);
+                        await context.globalState.update('savedRepos', savedRepos);
+                        console.log('New repository name saved:', newRepoName);
+                    }
+                }
+
+                const versions = message.payload.versions.split(',').map((v: string) => v.trim());
+                const cherryPickCommit = message.payload.cherryPickCommit;
+
+                for (const version of versions) {
+                    const branchName = `cherry-pick-branch_${version}`;
+                    const createBranch = await promptUser(`Create branch ${branchName}? Y / N`);
+                    if (createBranch.toLowerCase() === 'y') {
+                        console.log(`Creating branch ${branchName}...`);
+                        await createBranchAndCherryPick(repoName, version, cherryPickCommit, branchName);
+                    }
                 }
             }
         });
@@ -47,86 +80,434 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(disposable);
 }
 
-async function createBranchAndCherryPick(repoName: string, version: string, cherryPickBranch: string, newBranch: string) {
+// Update validateGitRepo with more logging:
+async function validateGitRepo(): Promise<boolean> {
     try {
-        await execCommand(`git checkout ${version}`);
-        await execCommand(`git checkout -b ${newBranch}`);
-        await execCommand(`git cherry-pick ${cherryPickBranch}`);
-        await execCommand(`git push origin ${newBranch}`);
-        vscode.window.showInformationMessage(`Branch ${newBranch} created and pushed successfully.`);
+        console.log('Validating git repository...');
+        console.log('Current workspace:', workspacePath);
+        
+        const gitStatus = await execCommand('git status');
+        console.log('Git status:', gitStatus);
+        
+        return true;
+    } catch (error) {
+        console.error('Git validation error:', error);
+        vscode.window.showErrorMessage(`Git validation failed: ${error}`);
+        return false;
+    }
+}
 
-        const prUrl = await promptUser('Please provide the URL of the original PR:');
-        if (prUrl) {
-            await createPullRequest(repoName, prUrl, newBranch, version.split(',').map(v => v.trim()));
-        }
-    } catch (error: any) {
-        if (error.message.includes('conflict')) {
-            vscode.window.showWarningMessage(`Conflict detected while cherry-picking into ${newBranch}. Please resolve the conflicts and then continue.`);
+async function branchExists(branchName: string): Promise<boolean> {
+    try {
+        await execCommand(`git rev-parse --verify ${branchName}`);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
-            const resolveConflicts = await promptUser(`Have you resolved the conflicts in ${newBranch}? Y / N`);
-            if (resolveConflicts.toLowerCase() === 'y') {
-                try {
-                    await execCommand(`git cherry-pick --continue`);
-                    await execCommand(`git push origin ${newBranch}`);
-                    vscode.window.showInformationMessage(`Branch ${newBranch} created and pushed successfully.`);
-
-                    const prUrl = await promptUser('Please provide the URL of the original PR:');
-                    if (prUrl) {
-                        await createPullRequest(repoName, prUrl, newBranch, version.split(',').map(v => v.trim()));
-                    }
-                } catch (continueError: any) {
-                    vscode.window.showErrorMessage(`Error continuing cherry-pick in ${newBranch}: ${continueError.message}`);
+async function createBranchAndCherryPick(repoName: string, version: string, cherryPickCommit: string, newBranch: string) {
+    try {
+        // Check if branch exists
+        const exists = await branchExists(newBranch);
+        if (exists) {
+            const useExisting = await vscode.window.showQuickPick(
+                [
+                    { label: 'Yes', description: 'Use existing branch' },
+                    { label: 'No', description: 'Create new branch with different name' }
+                ],
+                {
+                    placeHolder: `Branch ${newBranch} already exists. Use existing branch?`,
+                    ignoreFocusOut: true
                 }
+            );
+
+            if (useExisting?.label === 'Yes') {
+                console.log(`Using existing branch ${newBranch}`);
+                await execCommand(`git checkout ${newBranch}`);
             } else {
-                vscode.window.showInformationMessage(`Please resolve the conflicts in ${newBranch} and run 'git cherry-pick --continue' manually.`);
+                const suffix = new Date().getTime();
+                newBranch = `${newBranch}-${suffix}`;
+                console.log(`Creating new branch ${newBranch}...`);
+                await execCommand(`git checkout ${version}`);
+                await execCommand(`git checkout -b ${newBranch}`);
             }
         } else {
-            vscode.window.showErrorMessage(`Error creating branch ${newBranch}: ${error.message}`);
+            console.log(`Checking out version ${version}...`);
+            await execCommand(`git checkout ${version}`);
+            console.log(`Creating new branch ${newBranch}...`);
+            await execCommand(`git checkout -b ${newBranch}`);
         }
+
+        console.log(`Cherry-picking branch ${cherryPickCommit}...`);
+        const isMergeCommit = await checkIfMergeCommit(cherryPickCommit);
+        let cherryPickCommand = `git cherry-pick ${cherryPickCommit}`;
+        if (isMergeCommit) {
+            cherryPickCommand = `git cherry-pick -m 1 ${cherryPickCommit}`;
+            console.log('Detected merge commit. Using -m 1 option for cherry-pick.');
+        }
+
+        try {
+            await execCommand(cherryPickCommand);
+            console.log('Cherry-pick successful');
+            
+            console.log(`Pushing branch ${newBranch} to origin...`);
+            await execCommand(`git push origin ${newBranch}`);
+            
+            await getPRUrlWithRetry(repoName, newBranch, [version]);
+        } catch (error: any) {
+            if (error.message.includes('could not apply')) {
+                console.log('Conflict detected:', error.message);
+                
+                const resolveConflicts = await vscode.window.showQuickPick(
+                    [
+                        { label: 'Yes', description: 'Resolve conflicts now' },
+                        { label: 'No', description: 'Abort cherry-pick' }
+                    ],
+                    {
+                        placeHolder: 'Would you like to resolve conflicts?',
+                        ignoreFocusOut: true
+                    }
+                );
+
+                if (resolveConflicts?.label === 'Yes') {
+                    const conflictResolved = await handleConflictResolution(newBranch);
+                    
+                    if (conflictResolved) {
+                        console.log(`Pushing branch ${newBranch} to origin...`);
+                        await execCommand(`git push origin ${newBranch}`);
+                        await getPRUrlWithRetry(repoName, newBranch, [version]);
+                    }
+                } else {
+                    await execCommand('git cherry-pick --abort');
+                    throw new Error('Cherry-pick aborted by user');
+                }
+            } else {
+                throw error;
+            }
+        }
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Error: ${error.message}`);
+        console.error('Error:', error);
+        // Clean up if needed
+        try {
+            await execCommand('git cherry-pick --abort');
+        } catch (cleanupError) {
+            console.error('Error during cleanup:', cleanupError);
+        }
+        throw error; // Re-throw to handle in calling code
+    }
+}
+
+async function waitForUserToResolveConflicts(): Promise<'continue' | 'editing' | 'cancel'> {
+    try {
+        // Get list of files with conflicts
+        const conflictOutput = await execCommand('git diff --name-only --diff-filter=U');
+        const conflictedFiles = conflictOutput.split('\n').filter(file => file.trim() !== '');
+
+        if (conflictedFiles.length === 0) {
+            throw new Error('No conflicted files found');
+        }
+
+        // Open each conflicted file in editor
+        for (const file of conflictedFiles) {
+            const uri = vscode.Uri.file(path.join(workspacePath!, file));
+            await vscode.window.showTextDocument(uri, { preview: false });
+        }
+
+        // Show SCM view
+        await vscode.commands.executeCommand('workbench.view.scm');
+
+        // Create file watcher for conflicted files
+        const fileWatchers = conflictedFiles.map(file => {
+            const uri = vscode.Uri.file(path.join(workspacePath!, file));
+            return vscode.workspace.createFileSystemWatcher(uri.fsPath);
+        });
+
+        return new Promise((resolve) => {
+            const disposables: vscode.Disposable[] = [];
+
+            // Listen for file saves
+            fileWatchers.forEach(watcher => {
+                disposables.push(
+                    watcher.onDidChange(async () => {
+                        // Show resolution dialog on every save
+                        const choice = await vscode.window.showInformationMessage(
+                            'Have you resolved all conflicts?',
+                            { modal: true },
+                            'Yes',
+                            'Continue Editing',
+                            'Cancel'
+                        );
+
+                        switch (choice) {
+                            case 'Yes':
+                                // Clean up before resolving
+                                disposables.forEach(d => d.dispose());
+                                fileWatchers.forEach(w => w.dispose());
+                                resolve('continue');
+                                break;
+                            case 'Continue Editing':
+                                // Do nothing, let them keep editing
+                                break;
+                            case 'Cancel':
+                            default:
+                                // Clean up before resolving
+                                disposables.forEach(d => d.dispose());
+                                fileWatchers.forEach(w => w.dispose());
+                                resolve('cancel');
+                        }
+                    })
+                );
+            });
+
+            // Add cleanup for cancellation
+            disposables.push(
+                vscode.workspace.onDidCloseTextDocument((doc) => {
+                    if (conflictedFiles.some(file => doc.uri.fsPath.endsWith(file))) {
+                        // Clean up before resolving
+                        disposables.forEach(d => d.dispose());
+                        fileWatchers.forEach(w => w.dispose());
+                        resolve('cancel');
+                    }
+                })
+            );
+        });
+
+    } catch (error: any) {
+        console.error('Error handling conflicts:', error);
+        vscode.window.showErrorMessage(`Error handling conflicts: ${error.message}`);
+        return 'cancel';
+    }
+}
+
+// Update createBranchAndCherryPick to use new conflict resolution flow
+async function handleConflictResolution(newBranch: string): Promise<boolean> {
+    let resolving = true;
+    while (resolving) {
+        const result = await waitForUserToResolveConflicts();
+        
+        switch (result) {
+            case 'continue':
+                await execCommand('git add .');
+                await execCommand('git cherry-pick --continue');
+                resolving = false;
+                return true;
+            
+            case 'editing':
+                // User wants to continue editing, loop continues
+                continue;
+            
+            case 'cancel':
+                await execCommand('git cherry-pick --abort');
+                throw new Error('Cherry-pick cancelled by user');
+        }
+    }
+    return false;
+}
+
+async function checkIfMergeCommit(commitHash: string): Promise<boolean> {
+    try {
+        const parents = await execCommand(`git rev-list --parents -n 1 ${commitHash}`);
+        const parentHashes = parents.trim().split(' ');
+        const parentCount = parentHashes.length - 1; // First entry is the commit itself
+        return parentCount > 1;
+    } catch (error) {
+        console.error('Error checking if commit is a merge commit:', error);
+        return false;
     }
 }
 
 async function createPullRequest(repoName: string, prUrl: string, newBranch: string, versions: string[]) {
-    try {
-        const prData = await fetchPullRequestData(prUrl);
-        const newPrTitle = `${prData.title} (${versions.join(', ')})`;
+    // Create progress handler
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: "Creating Pull Request",
+        cancellable: true
+    }, async (progress, token) => {
+        try {
+            // Step 1: Fetch PR data
+            progress.report({ 
+                message: "Fetching original PR data...",
+                increment: 20 
+            });
+            const prData = await fetchPullRequestData(prUrl);
 
-        const versionPrUrls: { [version: string]: string } = {};
-        for (const version of versions) {
-            const versionPrUrl = await fetchVersionPrUrl(repoName, version);
-            versionPrUrls[version] = versionPrUrl;
+            // Step 2: Generate new title
+            progress.report({ 
+                message: "Generating PR title...",
+                increment: 20 
+            });
+            const newPrTitle = `${prData.title} (${versions.join(', ')})`;
+
+            // Step 3: Get version PR URLs
+            progress.report({ 
+                message: "Fetching version PR URLs...",
+                increment: 20 
+            });
+            const versionPrUrls: { [version: string]: string } = {};
+            for (const version of versions) {
+                const versionPrUrl = await fetchVersionPrUrl(repoName, version);
+                versionPrUrls[version] = versionPrUrl;
+            }
+
+            // Step 4: Modify PR body
+            progress.report({ 
+                message: "Preparing PR description...",
+                increment: 20 
+            });
+            const prBody = prData.body;
+
+            // Step 5: Create PR
+            progress.report({ 
+                message: "Creating GitHub pull request...",
+                increment: 20 
+            });
+            await createGitHubPullRequest(repoName, newBranch, newPrTitle, prBody);
+
+            // Success message
+            vscode.window.showInformationMessage(`Pull request created successfully for branch ${newBranch}.`);
+
+        } catch (error: any) {
+            if (token.isCancellationRequested) {
+                vscode.window.showInformationMessage('Pull request creation cancelled');
+                return;
+            }
+            
+            if (error.message.includes('Pull request not found')) {
+                throw error; // Propagate PR not found error
+            }
+            throw new Error(`Error creating pull request: ${error.message}`);
         }
-
-        const newPrBody = modifyPrBody(prData.body, prUrl, versionPrUrls);
-
-        await createGitHubPullRequest(repoName, newBranch, newPrTitle, newPrBody);
-        vscode.window.showInformationMessage(`Pull request created successfully for branch ${newBranch}.`);
-    } catch (error: any) {
-        vscode.window.showErrorMessage(`Error creating pull request: ${error.message}`);
-    }
+    });
 }
 
 async function fetchVersionPrUrl(repoName: string, version: string): Promise<string> {
-    const command = `gh pr list --repo ${repoName} --state closed --head ${version} --json url --jq '.[0].url'`;
     try {
+        const fullRepoName = await getFullRepoName(repoName);
+        const command = `gh pr list --repo ${fullRepoName} --state closed --head ${version} --json url --jq '.[0].url'`;
+        console.log('Executing command:', command);
+        
         const url = await execCommand(command);
         if (url) {
             return url.trim();
-        } else {
-            throw new Error(`No PR found for version ${version}`);
         }
+        throw new Error(`No PR found for version ${version} in repository ${fullRepoName}`);
     } catch (error: any) {
         throw new Error(`Error fetching PR URL for version ${version}: ${error.message}`);
     }
 }
 
+async function getFullRepoName(repoName: string): Promise<string> {
+    // If already in owner/repo format, return as is
+    if (repoName.includes('/')) {
+        return repoName;
+    }
+
+    try {
+        // First try to get organization name
+        const orgsCommand = `gh api /user/memberships/orgs --jq '.[].organization.login'`;
+        const orgs = (await execCommand(orgsCommand)).trim().split('\n');
+        
+        // Check if repo exists in any org
+        for (const org of orgs) {
+            try {
+                await execCommand(`gh repo view ${org}/${repoName}`);
+                return `${org}/${repoName}`;
+            } catch {
+                continue;
+            }
+        }
+
+        // If not found in orgs, try personal account
+        const userName = (await execCommand('gh api user --jq .login')).trim();
+        return `${userName}/${repoName}`;
+    } catch (error) {
+        console.error('Error resolving full repo name:', error);
+        throw new Error(`Could not determine full repository name for ${repoName}. Please use 'owner/repo' format.`);
+    }
+}
+
+async function getPRUrlWithRetry(repoName: string, newBranch: string, version: string[]): Promise<void> {
+    let retrying = true;
+    
+    while (retrying) {
+        try {
+            const prUrl = await vscode.window.showInputBox({
+                prompt: 'Please provide the URL of the original PR:',
+                ignoreFocusOut: true,
+                validateInput: (value) => {
+                    if (!value) {return 'PR URL is required';}
+                    if (!value.includes('github.com') || !value.includes('/pull/')) {
+                        return 'Invalid GitHub PR URL format';
+                    }
+                    return null;
+                }
+            });
+
+            if (!prUrl) {
+                const retry = await vscode.window.showWarningMessage(
+                    'No PR URL provided. Would you like to try again?',
+                    'Yes',
+                    'No'
+                );
+                if (retry !== 'Yes') {
+                    retrying = false;
+                    break;
+                }
+                continue;
+            }
+
+            await createPullRequest(repoName, prUrl, newBranch, version);
+            retrying = false;
+            
+        } catch (error: any) {
+            const retry = await vscode.window.showErrorMessage(
+                `${error.message}. Would you like to try again?`,
+                'Yes',
+                'No'
+            );
+            
+            if (retry !== 'Yes') {
+                retrying = false;
+                break;
+            }
+            // Continue loop to retry
+        }
+    }
+}
+
 async function fetchPullRequestData(prUrl: string): Promise<{ title: string, body: string }> {
-    const prApiUrl = prUrl.replace('github.com', 'api.github.com/repos').replace('/pull/', '/pulls/');
-    const response = await axios.get(prApiUrl);
-    return {
-        title: response.data.title,
-        body: response.data.body
-    };
+    try {
+        // Extract repo info from PR URL
+        const urlParts = prUrl.split('/');
+        const prNumber = urlParts[urlParts.length - 1];
+        const repoOwner = urlParts[urlParts.length - 4];
+        const repoName = urlParts[urlParts.length - 3];
+        const fullRepo = `${repoOwner}/${repoName}`;
+
+        // Verify access
+        await execCommand(`gh repo view ${fullRepo}`);
+
+        const command = `gh pr view ${prNumber} --repo ${fullRepo} --json title,body`;
+        const prDataRaw = await execCommand(command);
+        const prData = JSON.parse(prDataRaw);
+
+        if (!prData.title || !prData.body) {
+            throw new Error('Invalid PR data received');
+        }
+
+        return {
+            title: prData.title,
+            body: prData.body
+        };
+    } catch (error: any) {
+        console.error('Error fetching PR data:', error);
+        if (error.message.includes('could not resolve to a Repository')) {
+            throw new Error('Repository not found or no access. Please check permissions.');
+        }
+        throw new Error(`Failed to fetch PR data: ${error.message}`);
+    }
 }
 
 function modifyPrBody(body: string, originalPrUrl: string, versionPrUrls: { [version: string]: string }): string {
@@ -139,23 +520,46 @@ ${originalPrUrl}
 `;
 
     const versionsSection = Object.entries(versionPrUrls)
-        .map(([version, url]) => `[release/${version.trim()}](${url})`)
+        .map(([version, url]) => `[${version.trim()}](${url})`)
         .join('\n');
 
     return body.replace(/(## 水平展開 \| Cross-coverage[\s\S]*?<!-- If fixing a bug, search for similar features and describe if they need to be fixed as well -->)/, `$1\n\n${versionsSection}`);
 }
 
 async function createGitHubPullRequest(repoName: string, branch: string, title: string, body: string) {
-    const command = `gh pr create --repo ${repoName} --head ${branch} --title "${title}" --body "${body}" --base main`;
-    await execCommand(command);
+    try {
+        const fullRepoName = await getFullRepoName(repoName);
+        const command = `gh pr create --repo ${fullRepoName} --head ${branch} --title "${title}" --body "${body}" --base main`;
+        console.log('Creating PR with command:', command);
+        await execCommand(command);
+    } catch (error: any) {
+        throw new Error(`Failed to create pull request: ${error.message}`);
+    }
 }
 
 function execCommand(command: string): Promise<string> {
     return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
+        if (!workspacePath) {
+            reject(new Error('No workspace folder open'));
+            return;
+        }
+
+        // Add debug logging
+        console.log('Command:', command);
+        console.log('Working directory:', workspacePath);
+        console.log('Git repo check:', require('child_process').execSync('pwd', { cwd: workspacePath }).toString());
+
+        exec(command, { 
+            cwd: workspacePath,
+            // Add environment variables
+            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+        }, (error, stdout, stderr) => {
             if (error) {
+                console.log('Command error:', error.message);
+                console.log('Command stderr:', stderr);
                 reject(error);
             } else {
+                console.log('Command stdout:', stdout);
                 resolve(stdout);
             }
         });
@@ -163,17 +567,51 @@ function execCommand(command: string): Promise<string> {
 }
 
 async function promptUser(message: string): Promise<string> {
-    const input = await vscode.window.showInputBox({ prompt: message });
+    console.log('Prompting user:', message);
+    
+    // For merge conflict resolution, use QuickPick instead of InputBox
+    if (message.includes('Conflicts occurred')) {
+        const options: vscode.QuickPickItem[] = [
+            { label: 'Yes', description: 'Resolve conflicts now' },
+            { label: 'No', description: 'Abort cherry-pick' }
+        ];
+
+        const selection = await vscode.window.showQuickPick(options, {
+            placeHolder: message,
+            ignoreFocusOut: true,
+            canPickMany: false
+        });
+
+        return selection?.label || 'No';
+    }
+
+    // For other prompts, use InputBox
+    const input = await vscode.window.showInputBox({ 
+        prompt: message,
+        ignoreFocusOut: true 
+    });
+    
     return input || '';
 }
 
-function getWebviewContent(context: vscode.ExtensionContext, webview: vscode.Webview) {
+function getWebviewContentWithCSP(context: vscode.ExtensionContext, webview: vscode.Webview) {
     const scriptUri = webview.asWebviewUri(vscode.Uri.file(
         path.join(context.extensionPath, 'build', 'webviewScript.js')
     ));
 
+    console.log('Script URI:', scriptUri.toString());
+
     const savedRepos = context.globalState.get<string[]>('savedRepos', []);
     const savedReposOptions = savedRepos.map(repo => `<option value="${repo}">${repo}</option>`).join('');
+
+    const cspSource = webview.cspSource;
+
+    const repositorySelect = `
+        <select id="repoName" name="repoName">
+            <option value="">-- Select a repository --</option>
+            ${savedReposOptions}
+        </select>
+    `;
 
     return `
         <!DOCTYPE html>
@@ -196,15 +634,19 @@ function getWebviewContent(context: vscode.ExtensionContext, webview: vscode.Web
                     box-sizing: border-box;
                 }
             </style>
+                        <meta http-equiv="Content-Security-Policy" 
+            content="default-src 'none'; 
+                    script-src ${cspSource} 'unsafe-eval'; 
+                    style-src ${cspSource} 'unsafe-inline'; 
+                    connect-src ${cspSource} 'self';
+                    frame-src ${cspSource}">
         </head>
         <body>
             <h1>Backporter X-5000</h1>
             <form id="backportForm">
                 <div class="form-group">
                     <label for="repoName">Select Repository Name:</label>
-                    <select id="repoName" name="repoName">
-                        ${savedReposOptions}
-                    </select>
+                    ${repositorySelect}
                 </div>
                 <div class="form-group">
                     <label for="newRepoName">Or Add New Repository Name:</label>
@@ -215,10 +657,10 @@ function getWebviewContent(context: vscode.ExtensionContext, webview: vscode.Web
                     <input type="text" id="versions" name="versions" required>
                 </div>
                 <div class="form-group">
-                    <label for="cherryPickBranch">Cherry-pick Branch Name:</label>
-                    <input type="text" id="cherryPickBranch" name="cherryPickBranch" required>
+                    <label for="cherryPickCommit">Cherry-pick commit:</label>
+                    <input type="text" id="cherryPickCommit" name="cherryPickCommit" required>
                 </div>
-                <button type="submit">Start Backport</button>
+                <button type="button" id="submitButton">Start Backport</button>
             </form>
             <script src="${scriptUri}"></script>
         </body>
