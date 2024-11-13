@@ -20,6 +20,7 @@
     ]
   },
   "scripts": {
+    "build": "pnpm run compile && pnpm run compile-webview",
     "vscode:prepublish": "pnpm run package",
     "compile-webview": "tsc src/webviewScript.ts --outDir build",
     "compile": "webpack",
