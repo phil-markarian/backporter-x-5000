@@ -1,12 +1,15 @@
 // webviewScript.ts
 declare function acquireVsCodeApi(): any;
 
-// Rename to avoid conflict with built-in FormData
 interface BackportFormData {
     newRepoName: string;
     repoName: string;
     versions: string;
     cherryPickCommit: string;
+}
+
+interface SavedVersions {
+    [repoName: string]: string[];
 }
 
 (function() {
@@ -33,6 +36,55 @@ interface BackportFormData {
         return { isValid: true };
     }
 
+    function loadSavedVersions() {
+        const repoSelect = document.getElementById('repoName') as HTMLSelectElement;
+        const selectedRepo = repoSelect.value;
+        console.log('Loading versions for repo:', selectedRepo);
+        vscode.postMessage({ type: 'loadSavedVersions', repoName: selectedRepo });
+    }
+
+    function displaySavedVersions(versions: string[]) {
+        const container = document.getElementById('savedVersions');
+        if (!container) { return; }
+        container.innerHTML = '';
+        versions.forEach(version => {
+            const versionSpan = document.createElement('div');
+            versionSpan.className = 'version-item';
+            
+            const addButton = document.createElement('button');
+            addButton.type = 'button';
+            addButton.textContent = version;
+            addButton.className = 'version-add';
+            addButton.onclick = () => addVersion(version);
+    
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.textContent = '×';
+            deleteButton.className = 'version-delete';
+            deleteButton.title = 'Remove version';
+            deleteButton.onclick = () => deleteVersion(version);
+    
+            versionSpan.appendChild(addButton);
+            versionSpan.appendChild(deleteButton);
+            container.appendChild(versionSpan);
+        });
+    }
+
+    function addVersion(version: string) {
+        const versionsInput = document.getElementById('versions') as HTMLInputElement;
+        let versions = versionsInput.value.split(',').map(v => v.trim()).filter(v => v);
+        if (!versions.includes(version)) {
+            versions.push(version);
+            versionsInput.value = versions.join(', ');
+        }
+    }
+
+    function deleteVersion(version: string) {
+        const repoSelect = document.getElementById('repoName') as HTMLSelectElement;
+        const selectedRepo = repoSelect.value;
+        vscode.postMessage({ type: 'deleteVersion', repoName: selectedRepo, version: version });
+    }
+
     function initializeForm() {
         if (formInitialized) {
             console.log('Form already initialized');
@@ -43,6 +95,7 @@ interface BackportFormData {
         const submitButton = document.getElementById('submitButton') as HTMLButtonElement;
         const repoNameSelect = document.getElementById('repoName') as HTMLSelectElement;
         const newRepoNameInput = document.getElementById('newRepoName') as HTMLInputElement;
+        const newRepoNameLabel = document.querySelector('label[for="newRepoName"]') as HTMLLabelElement;
     
         if (!form || !submitButton || !repoNameSelect || !newRepoNameInput) {
             console.error('Required elements not found');
@@ -55,8 +108,12 @@ interface BackportFormData {
         repoNameSelect.addEventListener('change', () => {
             if (repoNameSelect.value) {
                 newRepoNameInput.disabled = true;
+                newRepoNameLabel.classList.add('disabled');
+                loadSavedVersions();
             } else {
                 newRepoNameInput.disabled = false;
+                newRepoNameLabel.classList.remove('disabled');
+                document.getElementById('savedVersions')!.innerHTML = '';
             }
         });
     
@@ -64,6 +121,7 @@ interface BackportFormData {
         newRepoNameInput.addEventListener('input', () => {
             if (newRepoNameInput.value.trim()) {
                 repoNameSelect.disabled = true;
+                document.getElementById('savedVersions')!.innerHTML = '';
             } else {
                 repoNameSelect.disabled = false;
             }
@@ -108,11 +166,96 @@ interface BackportFormData {
             }
         });
     
+        // Optionally load saved versions if a repository is already selected
+        if (repoNameSelect.value) {
+            loadSavedVersions();
+        }
+
         formInitialized = true;
         console.log('Form initialization complete');
     }
 
-    // Initialize immediately if DOM is ready
+    
+    window.addEventListener('message', event => {
+        const message = event.data;
+        switch (message.type) {
+            case 'savedVersions':
+                displaySavedVersions(message.versions);
+                break;
+    
+            case 'error':
+                // Display error in UI
+                showError(message.payload);
+                break;
+    
+            case 'success':
+                // Clear form and show success message
+                handleSuccess(message.payload);
+                break;
+    
+            case 'loading':
+                // Show/hide loading state
+                setLoading(message.payload);
+                break;
+    
+            case 'validationError':
+                // Show validation error in UI
+                showValidationError(message.payload);
+                break;
+        }
+    });
+
+    function showError(message: string) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        errorDiv.style.color = '#cc0000';
+        errorDiv.style.marginBottom = '10px';
+        
+        const form = document.getElementById('backportForm');
+        form?.insertBefore(errorDiv, form.firstChild);
+        
+        setTimeout(() => errorDiv.remove(), 5000);
+    }
+    
+    function handleSuccess(message: string) {
+        // Clear form
+        const form = document.getElementById('backportForm') as HTMLFormElement;
+        form.reset();
+        
+        // Clear saved versions display
+        document.getElementById('savedVersions')!.innerHTML = '';
+        
+        // Show success message
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success-message';
+        successDiv.textContent = message;
+        successDiv.style.color = '#28a745';
+        successDiv.style.marginBottom = '10px';
+        
+        form.insertBefore(successDiv, form.firstChild);
+        setTimeout(() => successDiv.remove(), 5000);
+    }
+    
+    function setLoading(isLoading: boolean) {
+        const submitButton = document.getElementById('submitButton') as HTMLButtonElement;
+        if (isLoading) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+        } else {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Start Backport';
+        }
+    }
+    
+    function showValidationError(message: string) {
+        const versionsInput = document.getElementById('versions') as HTMLInputElement;
+        versionsInput.setCustomValidity(message);
+        versionsInput.reportValidity();
+        setTimeout(() => versionsInput.setCustomValidity(''), 5000);
+    }
+
+    // Initialize form when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeForm);
     } else {
