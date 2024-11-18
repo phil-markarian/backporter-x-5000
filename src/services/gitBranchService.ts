@@ -337,7 +337,7 @@ export class GitBranchService {
                 ));
     
                 const showPrompt = async () => {
-                    if (isPromptShowing) return;
+                    if (isPromptShowing) {return;}
                     
                     try {
                         isPromptShowing = true;
