@@ -9,23 +9,43 @@ export class GitUtils {
         return new Promise((resolve, reject) => {
             try {
                 const workspacePath = this.workspaceService.workspacePath;
-
-                console.log({
-                    command,
-                    workspacePath,
-                    pwd: require('child_process').execSync('pwd', { cwd: workspacePath }).toString()
-                });
-
+    
+                // Only log non-sensitive commands
+                if (!command.includes('--abort')) {
+                    console.log({ command, workspacePath });
+                }
+    
                 exec(command, { 
                     cwd: workspacePath,
                     env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
                 }, (error, stdout, stderr) => {
                     if (error) {
-                        console.error('Command execution failed:', { error: error.message, stderr });
-                        reject(new Error(`Command failed: ${error.message}`));
+                        // Check for expected error cases
+                        const expectedErrors = [
+                            'no cherry-pick or revert in progress',
+                            'could not apply',
+                            'needs merge',
+                            'hint: run "git cherry-pick --abort"'
+                        ];
+    
+                        const isExpectedError = expectedErrors.some(msg => 
+                            stderr.includes(msg) || command.includes('cherry-pick')
+                        );
+    
+                        if (!isExpectedError) {
+                            console.error('Command execution failed:', { error: error.message, stderr });
+                        }
+    
+                        const err = new Error(`Command failed: ${stderr || error.message}`);
+                        (err as any).stderr = stderr;
+                        reject(err);
                         return;
                     }
-                    console.log('Command output:', stdout);
+                    
+                    // Only log output for non-abort commands
+                    if (!command.includes('--abort')) {
+                        console.log('Command output:', stdout);
+                    }
                     resolve(stdout.trim());
                 });
             } catch (error) {
@@ -63,15 +83,67 @@ export class GitUtils {
 
     async branchExists(branchName: string): Promise<boolean> {
         try {
-            await this.execCommand(`git rev-parse --verify ${branchName}`);
-            return true;
-        } catch {
-            try {
-                await this.execCommand(`git rev-parse --verify origin/${branchName}`);
-                return true;
-            } catch {
-                return false;
-            }
+            const localBranches = await this.execCommand('git branch --list');
+            const remoteBranches = await this.execCommand('git branch -r --list');
+    
+            // Normalize branch name
+            const cleanBranchName = branchName
+                .replace('refs/heads/', '')
+                .replace('refs/remotes/origin/', '')
+                .trim();
+    
+            // Check local branches
+            const localExists = localBranches
+                .split('\n')
+                .map(b => b.replace('*', '').trim())
+                .some(b => b === cleanBranchName);
+    
+            // Check remote branches
+            const remoteExists = remoteBranches
+                .split('\n')
+                .map(b => b.trim().replace('origin/', ''))
+                .some(b => b === cleanBranchName);
+    
+            console.log('Branch existence check:', {
+                original: branchName,
+                normalized: cleanBranchName,
+                localExists,
+                remoteExists
+            });
+    
+            return localExists || remoteExists;
+        } catch (error) {
+            console.error('Error checking branch existence:', error);
+            return false;
+        }
+    }
+    
+    async remoteBranchExists(branchName: string): Promise<boolean> {
+        try {
+            const branches = await this.execCommand('git branch -r --list');
+            
+            // Normalize branch name
+            const cleanBranchName = branchName
+                .replace('refs/remotes/origin/', '')
+                .replace('origin/', '')
+                .trim();
+    
+            const exists = branches
+                .split('\n')
+                .map(b => b.trim().replace('origin/', ''))
+                .some(b => b === cleanBranchName);
+    
+            console.log('Remote branch check:', {
+                original: branchName,
+                normalized: cleanBranchName,
+                exists,
+                branches: branches.split('\n').filter(Boolean)
+            });
+    
+            return exists;
+        } catch (error) {
+            console.error('Error checking remote branch:', error);
+            return false;
         }
     }
 

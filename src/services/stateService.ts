@@ -21,7 +21,8 @@ export class StateService {
         return {
             savedVersions: this.context.globalState.get('savedVersions', {}),
             savedRepos: this.context.globalState.get('savedRepos', []),
-            lastUpdated: Date.now()
+            lastUpdated: Date.now(),
+            pendingOperations: {}
         };
     }
 
@@ -181,11 +182,36 @@ export class StateService {
         await this.context.workspaceState.update('pendingBranches', pendingBranch);
     }
 
+    private updateOperationState(update: Partial<StateData['pendingOperations']>): void {
+        this.state.pendingOperations = {
+            ...this.state.pendingOperations,
+            ...update
+        };
+        this.stateChangeEmitter.fire(this.state);
+    }
+    
+    async updateCherryPickState(status: {
+        inProgress: boolean;
+        branch?: string;
+        commit?: string;
+        hasConflicts?: boolean;
+    }): Promise<void> {
+        this.updateOperationState({
+            cherryPick: {
+                inProgress: status.inProgress,
+                branch: status.branch || '',
+                commit: status.commit || '',
+                hasConflicts: status.hasConflicts || false
+            }
+        });
+    }
+
     async reset(): Promise<void> {
         this.state = {
             savedVersions: {},
             savedRepos: [],
-            lastUpdated: Date.now()
+            lastUpdated: Date.now(),
+            pendingOperations: {}
         };
         await this.saveState();
     }

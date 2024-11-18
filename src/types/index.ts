@@ -24,9 +24,21 @@ export interface SavedVersions {
 export type MessageType = 'error' | 'test' | 'loadSavedVersions' | 'deleteVersion' | 'formSubmit';
 
 export interface StateData {
-    savedVersions: SavedVersions;
+    savedVersions: { [key: string]: string[] };
     savedRepos: string[];
-    lastUpdated?: number;
+    lastUpdated: number;
+    pendingOperations: {
+        cherryPick?: {
+            inProgress: boolean;
+            branch: string;
+            commit: string;
+            hasConflicts: boolean;
+        };
+        branchCreation?: {
+            status: 'pending' | 'success' | 'failed';
+            error?: string;
+        };
+    };
 }
 
 export interface PRInfo {

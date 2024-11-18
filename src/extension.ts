@@ -4,7 +4,6 @@ import { WorkspaceService } from './services/workspaceService';
 import { GitUtils } from './utils/git';
 import { StateService } from './services/stateService';
 import { WebviewService } from './services/webviewService';
-import { GitService } from './services/gitService';
 import { RepoService } from './services/repoService';
 import { PullRequestService } from './services/pullRequestService';
 import { GitBranchService } from './services/gitBranchService';
@@ -15,10 +14,9 @@ export function activate(context: vscode.ExtensionContext) {
     const workspaceService = WorkspaceService.getInstance();
     const gitUtils = new GitUtils(workspaceService);
     const repoService = new RepoService(gitUtils);
-    const gitService = new GitService(gitUtils, repoService);
     const stateService = new StateService(context, gitUtils);
     const webviewService = new WebviewService(context);
-    const gitBranchService = new GitBranchService(gitUtils);
+    const gitBranchService = new GitBranchService(gitUtils, stateService);
     const uiHelper = new UIHelper();
 
     const disposable = vscode.commands.registerCommand('backporter-x-5000.openWebview', async () => {
