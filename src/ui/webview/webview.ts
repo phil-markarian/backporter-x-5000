@@ -1,116 +1,149 @@
-(function () {
+declare function acquireVsCodeApi(): any;
+
+interface BackportFormData {
+    newRepoName: string;
+    repoName: string;
+    versions: string;
+    cherryPickCommit: string;
+}
+
+(function() {
     console.log('Initializing webview script...');
-    var vscode = acquireVsCodeApi();
-    var formInitialized = false;
-    function validateForm(data) {
+    const vscode = acquireVsCodeApi();
+    let formInitialized = false;
+
+    function validateForm(data: BackportFormData): { isValid: boolean; error?: string } {
         if (!data.versions || !data.cherryPickCommit) {
             return { isValid: false, error: 'Versions and Cherry-pick branch are required' };
         }
-        var hasNewRepoName = data.newRepoName.trim() !== '';
-        var hasRepoName = data.repoName.trim() !== '';
+    
+        const hasNewRepoName = data.newRepoName.trim() !== '';
+        const hasRepoName = data.repoName.trim() !== '';
+    
         if (!hasNewRepoName && !hasRepoName) {
             return { isValid: false, error: 'Please select a repository or enter a new repository name.' };
         }
+    
         if (hasNewRepoName && hasRepoName) {
             return { isValid: false, error: 'Please provide either a new repository name or select an existing one, not both.' };
         }
+    
         return { isValid: true };
     }
+
     function loadSavedVersions() {
-        var repoSelect = document.getElementById('repoName');
-        var selectedRepo = repoSelect.value;
+        const repoSelect = document.getElementById('repoName') as HTMLSelectElement;
+        const selectedRepo = repoSelect.value;
         console.log('Loading versions for repo:', selectedRepo);
-        vscode.postMessage({ type: 'loadSavedVersions', repoName: selectedRepo });
+        vscode.postMessage({ 
+            type: 'loadSavedVersions', 
+            payload: { repoName: selectedRepo }
+        });
     }
-    function displaySavedVersions(versions) {
-        var container = document.getElementById('savedVersions');
-        if (!container) {
-            return;
-        }
+
+    function displaySavedVersions(versions: string[]) {
+        const container = document.getElementById('savedVersions');
+        if (!container) { return; }
         container.innerHTML = '';
-        versions.forEach(function (version) {
-            var versionSpan = document.createElement('div');
+        versions.forEach(version => {
+            const versionSpan = document.createElement('div');
             versionSpan.className = 'version-item';
-            var addButton = document.createElement('button');
+            
+            const addButton = document.createElement('button');
             addButton.type = 'button';
             addButton.textContent = version;
             addButton.className = 'version-add';
-            addButton.onclick = function () { return addVersion(version); };
-            var deleteButton = document.createElement('button');
+            addButton.onclick = () => addVersion(version);
+    
+            const deleteButton = document.createElement('button');
             deleteButton.type = 'button';
             deleteButton.textContent = '×';
             deleteButton.className = 'version-delete';
             deleteButton.title = 'Remove version';
-            deleteButton.onclick = function () { return deleteVersion(version); };
+            deleteButton.onclick = () => deleteVersion(version);
+    
             versionSpan.appendChild(addButton);
             versionSpan.appendChild(deleteButton);
             container.appendChild(versionSpan);
         });
     }
-    function addVersion(version) {
-        var versionsInput = document.getElementById('versions');
-        var versions = versionsInput.value.split(',').map(function (v) { return v.trim(); }).filter(function (v) { return v; });
+
+    function addVersion(version: string) {
+        const versionsInput = document.getElementById('versions') as HTMLInputElement;
+        let versions = versionsInput.value.split(',').map(v => v.trim()).filter(v => v);
         if (!versions.includes(version)) {
             versions.push(version);
             versionsInput.value = versions.join(', ');
         }
     }
-    function deleteVersion(version) {
-        var repoSelect = document.getElementById('repoName');
-        var selectedRepo = repoSelect.value;
-        vscode.postMessage({ type: 'deleteVersion', repoName: selectedRepo, version: version });
+
+    function deleteVersion(version: string) {
+        const repoSelect = document.getElementById('repoName') as HTMLSelectElement;
+        const selectedRepo = repoSelect.value;
+        vscode.postMessage({ 
+            type: 'deleteVersion', 
+            payload: { repoName: selectedRepo, version }
+        });
     }
+
     function initializeForm() {
         if (formInitialized) {
             console.log('Form already initialized');
             return;
         }
-        var form = document.getElementById('backportForm');
-        var submitButton = document.getElementById('submitButton');
-        var repoNameSelect = document.getElementById('repoName');
-        var newRepoNameInput = document.getElementById('newRepoName');
-        var newRepoNameLabel = document.querySelector('label[for="newRepoName"]');
+    
+        const form = document.getElementById('backportForm') as HTMLFormElement;
+        const submitButton = document.getElementById('submitButton') as HTMLButtonElement;
+        const repoNameSelect = document.getElementById('repoName') as HTMLSelectElement;
+        const newRepoNameInput = document.getElementById('newRepoName') as HTMLInputElement;
+        const newRepoNameLabel = document.querySelector('label[for="newRepoName"]') as HTMLLabelElement;
+    
         if (!form || !submitButton || !repoNameSelect || !newRepoNameInput) {
             console.error('Required elements not found');
             return;
         }
+    
         console.log('Initializing form elements...');
+    
         // Event listener for repoName select
-        repoNameSelect.addEventListener('change', function () {
-            if (repoNameSelect.value) {
+        repoNameSelect.addEventListener('change', () => {
+            const selectedValue = repoNameSelect.value;
+            if (selectedValue) {
                 newRepoNameInput.disabled = true;
                 newRepoNameLabel.classList.add('disabled');
                 loadSavedVersions();
-            }
-            else {
+            } else {
                 newRepoNameInput.disabled = false;
                 newRepoNameLabel.classList.remove('disabled');
-                document.getElementById('savedVersions').innerHTML = '';
+                document.getElementById('savedVersions')!.innerHTML = '';
             }
         });
+    
         // Event listener for newRepoName input
-        newRepoNameInput.addEventListener('input', function () {
+        newRepoNameInput.addEventListener('input', () => {
             if (newRepoNameInput.value.trim()) {
                 repoNameSelect.disabled = true;
-                document.getElementById('savedVersions').innerHTML = '';
-            }
-            else {
+                document.getElementById('savedVersions')!.innerHTML = '';
+            } else {
                 repoNameSelect.disabled = false;
             }
         });
+    
         // Add click listener to submit button
-        submitButton.addEventListener('click', function () {
+        submitButton.addEventListener('click', () => {
             console.log('Submit button clicked');
             try {
-                var formData = new FormData(form);
-                var data = {
-                    newRepoName: formData.get('newRepoName') || '',
-                    repoName: formData.get('repoName') || '',
-                    versions: formData.get('versions') || '',
-                    cherryPickCommit: formData.get('cherryPickCommit') || ''
+                const formData = new FormData(form);
+                const data: BackportFormData = {
+                    newRepoName: formData.get('newRepoName') as string || '',
+                    repoName: formData.get('repoName') as string || '',
+                    versions: formData.get('versions') as string || '',
+                    cherryPickCommit: formData.get('cherryPickCommit') as string || ''
                 };
+    
                 console.log('Form data:', data);
-                var validation = validateForm(data);
+    
+                const validation = validateForm(data);
                 if (!validation.isValid) {
                     console.error('Validation failed:', validation.error);
                     vscode.postMessage({
@@ -119,13 +152,14 @@
                     });
                     return;
                 }
+    
                 console.log('Sending validated data:', data);
                 vscode.postMessage({
                     type: 'formSubmit',
                     payload: data
                 });
-            }
-            catch (error) {
+    
+            } catch (error) {
                 console.error('Error processing form:', error);
                 vscode.postMessage({
                     type: 'error',
@@ -133,88 +167,90 @@
                 });
             }
         });
+    
         // Optionally load saved versions if a repository is already selected
         if (repoNameSelect.value) {
             loadSavedVersions();
         }
+
         formInitialized = true;
         console.log('Form initialization complete');
     }
-    window.addEventListener('message', function (event) {
-        var message = event.data;
+
+    window.addEventListener('message', event => {
+        const message = event.data;
         switch (message.type) {
             case 'savedVersions':
                 displaySavedVersions(message.versions);
                 break;
+    
             case 'error':
-                // Display error in UI
                 showError(message.payload);
                 break;
+    
             case 'success':
-                // Clear form and show success message
                 handleSuccess(message.payload);
                 break;
+    
             case 'loading':
-                // Show/hide loading state
                 setLoading(message.payload);
                 break;
+    
             case 'validationError':
-                // Show validation error in UI
                 showValidationError(message.payload);
                 break;
         }
     });
-    function showError(message) {
-        var errorDiv = document.createElement('div');
+
+    function showError(message: string) {
+        const errorDiv = document.createElement('div');
         errorDiv.className = 'error-message';
         errorDiv.textContent = message;
         errorDiv.style.color = '#cc0000';
         errorDiv.style.marginBottom = '10px';
-        var form = document.getElementById('backportForm');
-        form === null || form === void 0 ? void 0 : form.insertBefore(errorDiv, form.firstChild);
-        setTimeout(function () { return errorDiv.remove(); }, 5000);
+        
+        const form = document.getElementById('backportForm');
+        form?.insertBefore(errorDiv, form.firstChild);
+        
+        setTimeout(() => errorDiv.remove(), 5000);
     }
-    function handleSuccess(message) {
-        // Clear form
-        var form = document.getElementById('backportForm');
+    
+    function handleSuccess(message: string) {
+        const form = document.getElementById('backportForm') as HTMLFormElement;
         form.reset();
-        // Clear saved versions display
-        document.getElementById('savedVersions').innerHTML = '';
-        // Show success message
-        var successDiv = document.createElement('div');
+        
+        document.getElementById('savedVersions')!.innerHTML = '';
+        
+        const successDiv = document.createElement('div');
         successDiv.className = 'success-message';
         successDiv.textContent = message;
         successDiv.style.color = '#28a745';
         successDiv.style.marginBottom = '10px';
+        
         form.insertBefore(successDiv, form.firstChild);
-        setTimeout(function () { return successDiv.remove(); }, 5000);
+        setTimeout(() => successDiv.remove(), 5000);
     }
-    function setLoading(isLoading) {
-        var submitButton = document.getElementById('submitButton');
-        if (isLoading) {
-            submitButton.disabled = true;
-            submitButton.textContent = 'Processing...';
-        }
-        else {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Start Backport';
-        }
+    
+    function setLoading(isLoading: boolean) {
+        const submitButton = document.getElementById('submitButton') as HTMLButtonElement;
+        submitButton.disabled = isLoading;
+        submitButton.textContent = isLoading ? 'Processing...' : 'Start Backport';
     }
-    function showValidationError(message) {
-        var versionsInput = document.getElementById('versions');
+    
+    function showValidationError(message: string) {
+        const versionsInput = document.getElementById('versions') as HTMLInputElement;
         versionsInput.setCustomValidity(message);
         versionsInput.reportValidity();
-        setTimeout(function () { return versionsInput.setCustomValidity(''); }, 5000);
+        setTimeout(() => versionsInput.setCustomValidity(''), 5000);
     }
-    // Initialize form when DOM is ready
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeForm);
-    }
-    else {
+    } else {
         initializeForm();
     }
-    // Send test message to verify communication
-    vscode.postMessage({
+
+    vscode.postMessage({ 
         type: 'test',
         payload: 'Script loaded and initialized'
     });
