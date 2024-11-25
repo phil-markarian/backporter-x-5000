@@ -12,16 +12,42 @@ export interface GitCommandOptions {
     throwOnError?: boolean;
 }
 
-export interface WebviewMessage {
-    type: string;
-    payload?: any;
-}
-
 export interface SavedVersions {
     [key: string]: string[];
 }
 
-export type MessageType = 'error' | 'test' | 'loadSavedVersions' | 'deleteVersion' | 'formSubmit';
+// types.ts
+export interface WebviewMessage {
+    type: MessageType;
+    payload?: any;
+    key?: string;
+    value?: string;
+}
+
+export type MessageType = 
+    | 'error' 
+    | 'test'
+    | 'loadSavedVersions'
+    | 'deleteVersion'
+    | 'formSubmit'
+    | 'getLanguageString'
+    | 'languageChange'
+    | 'languageString'
+    | 'languageChangeComplete'
+    | 'savedVersions'
+    | 'success'
+    | 'loading'
+    | 'validationError'
+    | 'webviewReady';
+
+export type LanguageMessage = {
+    type: 'languageChange' | 'getLanguageString';
+    payload: {
+        language?: string;
+        key?: string;
+        keys?: string[];
+    };
+};
 
 export interface StateData {
     savedVersions: { [key: string]: string[] };

@@ -3,16 +3,31 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { getMainStyles, getPrSelectionStyles } from '../ui/styles';
 import { PRInfo } from '../types';
+import { LanguageService } from './languageService';
 
 export class WebviewService {
-    constructor(private readonly context: vscode.ExtensionContext) {}
+    constructor(private readonly context: vscode.ExtensionContext,
+                private readonly languageService: LanguageService
+    ) {}
 
     async getWebviewContentWithCSP(webview: vscode.Webview): Promise<string> {
         this.validateResources();
 
-        const scriptUri = webview.asWebviewUri(vscode.Uri.file(
-            path.join(this.context.extensionPath, 'build', 'webview.js')
-        ));
+        const currentLanguage = this.languageService.getCurrentLanguage();
+        const strings = this.languageService.getStringsForLanguage(currentLanguage);
+
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.file(
+                path.join(
+                    this.context.extensionPath,
+                    'build',
+                    'webview',
+                    'ui',
+                    'webview',
+                    'webview.js'
+                )
+            )
+        );
         const imageUri = webview.asWebviewUri(vscode.Uri.file(
             path.join(this.context.extensionPath, 'media', 'side-image.jpg')
         ));
@@ -27,7 +42,8 @@ export class WebviewService {
             webview.cspSource,
             scriptUri,
             savedReposOptions,
-            styles
+            styles,
+            currentLanguage
         );
     }
 
@@ -63,29 +79,58 @@ export class WebviewService {
         `;
     }
 
+    private languageSelector(currentLanguage: string): string {
+        console.log('[WebviewService] Creating language selector with language:', currentLanguage);
+        const languages = [
+            { code: 'en', name: this.languageService.getString('language_en', 'en') },
+            { code: 'ja', name: this.languageService.getString('language_ja', 'en') }
+        ];
+    
+        return `
+            <div class="language-selector">
+                <select id="languageSelector" class="language-select">
+                    ${languages.map(lang => `
+                        <option value="${lang.code}" ${currentLanguage === lang.code ? 'selected' : ''}>
+                            ${lang.name}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+        `;
+    }
+
+    private getSavedVersionsContainer(): string {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        return `
+            <div class="form-group">
+                <label for="savedVersions">${strings.saved_versions_label}</label>
+                <div id="savedVersions" class="saved-versions-container"></div>
+            </div>
+        `;
+    }
+
+    private getRepositorySelect(savedReposOptions: string): string {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        return `
+            <select id="repoName" name="repoName">
+                <option value="">${strings.select_repository}</option>
+                ${savedReposOptions}
+            </select>
+        `;
+    }
+
     private getMainHtmlContent(
         cspSource: string,
         scriptUri: vscode.Uri,
         savedReposOptions: string,
-        styles: string
+        styles: string,
+        currentLanguage: string
     ): string {
-        const savedVersionsContainer = `
-            <div class="form-group">
-                <label>Saved versions:</label>
-                <div id="savedVersions"></div>
-            </div>
-        `;
-
-        const repositorySelect = `
-            <select id="repoName" name="repoName">
-                <option value="">-- Select a repository --</option>
-                ${savedReposOptions}
-            </select>
-        `;
+        const strings = this.languageService.getStringsForLanguage(currentLanguage);
 
         return `
             <!DOCTYPE html>
-            <html lang="en">
+            <html lang="${currentLanguage}">
             <head>
                 <meta charset="UTF-8">
                 ${this.getCspTag(cspSource)}
@@ -96,31 +141,37 @@ export class WebviewService {
             <body>
                 <div class="container">
                     <div class="left-side">
+                        <div class="header-container">
                         <h1>Backporter X-5000</h1>
+                        ${this.languageSelector(currentLanguage)}
+                        </div>
                         <form id="backportForm">
                             <div class="form-group">
-                                <label for="repoName">Select Repository Name:</label>
-                                ${repositorySelect}
+                                <label for="repoName">${strings.repo_name_label}</label>
+                                ${this.getRepositorySelect(savedReposOptions)}
                             </div>
                             <div class="form-group">
-                                <label for="newRepoName">Or Add New Repository Name:</label>
+                                <label for="newRepoName">${strings.new_repo_label}</label>
                                 <input type="text" id="newRepoName" name="newRepoName">
                             </div>
                             <div class="form-group">
-                                <label for="versions">Versions to Backport (comma-separated):</label>
+                                <label for="versions">${strings.versions_label}</label>
                                 <input type="text" id="versions" name="versions" required>
                             </div>
-                            ${savedVersionsContainer}
+                            ${this.getSavedVersionsContainer()}
                             <div class="form-group">
-                                <label for="cherryPickCommit">Cherry-pick commit:</label>
+                                <label for="cherryPickCommit">${strings.cherry_pick_label}</label>
                                 <input type="text" id="cherryPickCommit" name="cherryPickCommit" required>
                             </div>
-                            <button type="button" id="submitButton">Start Backport</button>
+                            <button type="button" id="submitButton" disabled>${strings.submit_button}</button>
                         </form>
                     </div>
                     <div class="right-side"></div>
                 </div>
-                <script src="${scriptUri}"></script>
+                <script src="${scriptUri}">
+                window.initialStrings = ${JSON.stringify(strings)};
+                window.currentLanguage = "${currentLanguage}";
+                </script>
             </body>
             </html>
         `;

@@ -13,7 +13,7 @@ export function getMainStyles(imageUri: string) {
         .left-side {
             width: 30%;
             background-color: #2B86CD;
-            padding: 40px;
+            padding: 2.5rem;
             box-sizing: border-box;
             color: white;
         }
@@ -25,22 +25,22 @@ export function getMainStyles(imageUri: string) {
             background-repeat: no-repeat;
         }
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 1.25rem;
         }
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 0.5rem;
             font-weight: 500;
             color: rgba(255,255,255,0.9);
         }
         input, select {
             width: 90%;
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0.625rem;
+            border-radius: 0.25rem;
+            border: 0.0625rem solid rgba(255,255,255,0.2);
             background: rgba(255,255,255,0.1);
             color: white;
-            font-size: 14px;
+            font-size: 0.875rem;
         }
         input::placeholder { color: rgba(255,255,255,0.5); }
         input:disabled {
@@ -53,35 +53,35 @@ export function getMainStyles(imageUri: string) {
             color: white;
         }
         h1 {
-            margin-bottom: 30px;
-            font-size: 24px;
+            margin-bottom: 1.875rem;
+            font-size: 1.5rem;
             font-weight: 400;
             color: white;
         }
         #submitButton {
             width: 90%;
-            padding: 12px 24px;
+            padding: 0.75rem 1.5rem;
             background: #CD722B;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 0.375rem;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 0.875rem;
             font-weight: 500;
-            margin-top: 20px;
+            margin-top: 1.25rem;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.1);
             text-align: center;
             display: block;
         }
         #submitButton:hover {
             background: #35CD2B;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transform: translateY(-1px);
+            box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.2);
+            transform: translateY(-0.0625rem);
         }
         #submitButton:active {
-            transform: translateY(1px);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            transform: translateY(0.0625rem);
+            box-shadow: 0 0.0625rem 0.125rem rgba(0,0,0,0.1);
         }
         #submitButton:disabled {
             background: #cccccc;
@@ -91,27 +91,27 @@ export function getMainStyles(imageUri: string) {
         }
         .version-item {
             display: inline-block;
-            margin: 0 10px 10px 0;
+            margin: 0 0.625rem 0.625rem 0;
             position: relative;
         }
         .version-add {
-            padding: 8px 16px;
+            padding: 0.5rem 1rem;
             background: #CD722B;
             color: white;
             border: none;
-            border-radius: 20px;
+            border-radius: 1.25rem;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 0.8125rem;
             transition: background-color 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.1);
         }
         .version-add:hover { background: #35CD2B; }
         .version-delete {
             position: absolute;
-            top: -8px;
-            right: -8px;
-            width: 20px;
-            height: 20px;
+            top: -0.5rem;
+            right: -0.5rem;
+            width: 1.25rem;
+            height: 1.25rem;
             background: #cc0000;
             color: white;
             border: none;
@@ -120,39 +120,79 @@ export function getMainStyles(imageUri: string) {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 0.75rem;
             transition: background-color 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.1);
             opacity: 0;
         }
         .version-item:hover .version-delete { opacity: 1; }
         .version-delete:hover { background: #aa0000; }
         label.disabled { opacity: 0.5; }
+        .header-container {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            margin-bottom: 1.875rem;
+            margin-top: 2.5rem;
+        }
+
+        .language-selector {
+            position: absolute;
+            top: -4.0625rem;
+            right: -1.875rem;
+        }
+
+        .language-select {
+            width: auto;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.25rem;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 0.0625rem solid rgba(255,255,255,0.2);
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+
+        .language-select option {
+            background: #2B86CD;
+            color: white;
+        }
+
+        .language-select:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: white;
+        }
     `;
 }
 
 export function getPrSelectionStyles() {
     return `
         body {
-            padding: 20px;
+            padding: 1.25rem;
             color: white;
             background-color: #2B86CD;
         }
-        .pr-info { margin-bottom: 20px; }
-        .search-box { margin: 20px 0; }
+        .pr-info { margin-bottom: 1.25rem; }
+        .search-box { margin: 1.25rem 0; }
         textarea {
             width: 100%;
-            margin: 10px 0;
+            margin: 0.625rem 0;
             background: rgba(255,255,255,0.1);
             color: white;
-            border: 1px solid rgba(255,255,255,0.2);
+            border: 0.0625rem solid rgba(255,255,255,0.2);
         }
         button {
             background: #CD722B;
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
             cursor: pointer;
         }
     `;

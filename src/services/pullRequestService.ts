@@ -1,8 +1,8 @@
-// src/services/pullRequestService.ts
 import * as vscode from 'vscode';
 import { GitUtils } from '../utils/git';
 import { RepoService } from '../services/repoService';
 import { PRData, VersionPrUrls } from '../types';
+import { LanguageService } from './languageService';
 
 export class PullRequestService {
     private validatedRepoName: string;
@@ -10,13 +10,17 @@ export class PullRequestService {
     constructor(
         private repoName: string,
         private repoService: RepoService,
-        private gitUtils: GitUtils
+        private gitUtils: GitUtils,
+        private languageService: LanguageService
     ) {
         this.repoName = repoName;
         this.validatedRepoName = '';
     }
 
     async init(): Promise<void> {
+        const strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
         try {
             // For simple repo names, get owner from git remote
             if (!this.repoName.includes('/')) {
@@ -24,20 +28,43 @@ export class PullRequestService {
                 const owner = remoteUrl.includes('git@github.com:')
                     ? remoteUrl.split(':')[1].split('/')[0]
                     : remoteUrl.replace('https://github.com/', '').split('/')[0];
-
+    
                 const fullRepoName = `${owner.replace('.git', '').trim()}/${this.repoName}`;
                 this.validatedRepoName = await this.validateRepositoryAccess(fullRepoName);
                 return;
             }
-
+    
             // Already in owner/repo format or GitHub URL
             this.validatedRepoName = await this.validateRepositoryAccess(this.repoName);
         } catch (error: any) {
-            throw new Error(`Repository initialization failed: ${error.message}`);
+            const errorMessage = strings.pr_init_failed.replace('{0}', error.message);
+            throw new Error(errorMessage);
+        }
+    }
+
+    private async handleError(error: any, type: string): Promise<void> {
+        const strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
+
+        const errorMessage = strings[`error_${type}`].replace('{0}', error.message);
+        
+        const retry = await vscode.window.showErrorMessage(
+            errorMessage,
+            strings.yes,
+            strings.no
+        );
+
+        if (retry === strings.no) {
+            throw new Error(errorMessage);
         }
     }
 
     private async validateRepositoryAccess(repoName: string): Promise<string> {
+        const strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
+    
         try {
             // Check if repo exists
             await this.gitUtils.execCommand(`gh repo view ${repoName}`);
@@ -51,7 +78,7 @@ export class PullRequestService {
                 return repoName;
             }
     
-            // Check org membership/collaborator status
+            // Check collaborator permissions
             try {
                 const collaboratorCmd = `gh api repos/${repoName}/collaborators/${currentUser.trim()}/permission --jq .permission`;
                 const permission = await this.gitUtils.execCommand(collaboratorCmd);
@@ -70,16 +97,19 @@ export class PullRequestService {
                 }
             }
     
-            throw new Error(`Insufficient permissions for repository ${repoName}`);
+            throw new Error(strings.pr_invalid_repo_permissions.replace('{0}', repoName));
         } catch (error: any) {
-            if (error.message.includes('Insufficient permissions')) {
+            if (error.message.includes(strings.pr_invalid_repo_permissions.replace('{0}', ''))) {
                 throw error;
             }
-            throw new Error(`Repository validation failed: ${error.message}`);
+            throw new Error(strings.pr_validation_failed.replace('{0}', error.message));
         }
     }
 
     private async formatRepoName(repoName: string): Promise<string> {
+        const strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
         // If it's a full PR URL, extract repo info
         if (repoName.includes('github.com')) {
             const urlMatch = repoName.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -113,7 +143,8 @@ export class PullRequestService {
             owner = owner.replace('.git', '').trim();
             return await this.validateRepositoryAccess(`${owner}/${repoName}`);
         } catch (error: any) {
-            throw new Error(`Could not determine repository owner: ${error.message}`);
+            const errorMessage = strings.error_repo_name.replace('{0}', error.message);
+            throw new Error(errorMessage);
         }
     }
 
@@ -124,28 +155,30 @@ export class PullRequestService {
      * @param version - The version to backport.
      */
     async createPullRequest(prUrl: string, newBranch: string, version: string): Promise<void> {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
         if (!this.validatedRepoName) {
             await this.init();
         }
-
+    
         return vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: "Creating Pull Request",
+            title: strings.pr_creating_title,
             cancellable: true
         }, async (progress, token) => {
             try {
-                progress.report({ message: "Fetching PR data...", increment: 20 });
+                progress.report({ message: strings.pr_fetching_data, increment: 20 });
                 const prData = await this.fetchPullRequestData(prUrl);
-
-                progress.report({ message: "Generating title...", increment: 20 });
+    
+                progress.report({ message: strings.pr_generating_title, increment: 20 });
                 const newPrTitle = `${prData.title} (${version})`;
-
-                progress.report({ message: "Creating PR...", increment: 60 });
+    
+                progress.report({ message: strings.pr_creating, increment: 60 });
                 await this.createGitHubPullRequest(newBranch, newPrTitle, prData.body, version);
-
+    
             } catch (error: any) {
                 if (token.isCancellationRequested) {
-                    vscode.window.showInformationMessage('PR creation cancelled');
+                    vscode.window.showInformationMessage(strings.pr_creation_cancelled);
                     return;
                 }
                 throw error;
@@ -159,11 +192,14 @@ export class PullRequestService {
      * @returns PR data including title and body.
      */
     private async fetchPullRequestData(prUrl: string): Promise<PRData> {
+        const strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
         try {
             // Parse PR URL properly
             const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
             if (!urlMatch) {
-                throw new Error('Invalid GitHub PR URL format');
+                throw new Error(strings.pr_url_invalid);
             }
             
             const [, owner, repo, prNumber] = urlMatch;
@@ -171,14 +207,14 @@ export class PullRequestService {
     
             // Ensure we have proper repo format for all subsequent calls
             if (!this.validateRepoFormat(this.repoName)) {
-                throw new Error(`Invalid repository format. Expected "owner/repo", got "${this.repoName}"`);
+                throw new Error(strings.pr_invalid_repo_format.replace('{0}', this.repoName));
             }
     
             // Validate repo exists
             try {
                 await this.gitUtils.execCommand(`gh repo view ${fullRepoName}`);
             } catch (error) {
-                throw new Error(`Repository ${fullRepoName} not found or inaccessible`);
+                throw new Error(strings.pr_repo_not_found.replace('{0}', fullRepoName));
             }
     
             const command = `gh pr view ${prNumber} --repo ${fullRepoName} --json title,body`;
@@ -187,16 +223,16 @@ export class PullRequestService {
             try {
                 const prData: PRData = JSON.parse(prDataRaw);
                 if (!prData.title || !prData.body) {
-                    throw new Error('Invalid PR data received');
+                    throw new Error(strings.pr_no_title_body);
                 }
                 return prData;
             } catch (error) {
-                throw new Error(`Failed to parse PR data: ${(error as any).message}`);
+                throw new Error(strings.pr_parse_error.replace('{0}', (error as any).message));
             }
     
         } catch (error: any) {
-            const message = error.message.includes('expected the "[HOST/]OWNER/REPO" format') 
-                ? 'Repository must be in the format "owner/repo"'
+            const message = error.message.includes('expected the "[HOST/]OWNER/REPO" format')
+                ? strings.pr_invalid_repo_format
                 : error.message;
             throw new Error(message);
         }
@@ -280,24 +316,26 @@ export class PullRequestService {
      * @returns The assignee's username or undefined.
      */
     private async handlePRAssignment(): Promise<string | undefined> {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
         const selection = await vscode.window.showQuickPick(
             [
-                { label: 'Yes', description: 'Assign PR to myself' },
-                { label: 'No', description: 'Assign PR to someone else' }
+                { label: strings.pr_self_assign_yes, description: strings.pr_self_assign_yes_desc },
+                { label: strings.pr_self_assign_no, description: strings.pr_self_assign_no_desc }
             ],
-            { placeHolder: 'Self-assign PR?' }
+            { placeHolder: strings.pr_self_assign_prompt }
         );
-
-        if (selection?.label === 'Yes') {
+    
+        if (selection?.label === strings.pr_self_assign_yes) {
             return '@self';
         }
-
+    
         const users = await this.fetchGitHubUsers();
         const assignee = await vscode.window.showQuickPick(
             users.map(user => ({ label: `@${user}` })),
-            { placeHolder: 'Select assignee' }
+            { placeHolder: strings.pr_select_assignee }
         );
-
+    
         return assignee?.label;
     }
 
@@ -306,10 +344,12 @@ export class PullRequestService {
      * @returns The reviewer's username or undefined.
      */
     private async selectReviewer(): Promise<string | undefined> {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
         const users = await this.fetchGitHubUsers();
         const reviewer = await vscode.window.showQuickPick(
             users.map(user => ({ label: `@${user}` })),
-            { placeHolder: 'Select reviewer' }
+            { placeHolder: strings.pr_select_reviewer }
         );
         return reviewer?.label;
     }
@@ -358,7 +398,7 @@ export class PullRequestService {
                 }
             }
         } catch (error) {
-            console.error('Error fetching GitHub users:', error);
+            await this.handleError(error, 'pr_fetch_github_users');
             return [];
         }
     }
@@ -388,50 +428,50 @@ export class PullRequestService {
      * @param version - The version to backport.
      */
     public async getPRUrlWithRetry(repoName: string, newBranch: string, version: string): Promise<void> {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
         let retrying = true;
         
         while (retrying) {
             try {
                 const prUrl = await vscode.window.showInputBox({
-                    prompt: 'Please provide the URL of the original PR:',
+                    prompt: strings.pr_url_prompt,
                     ignoreFocusOut: true,
                     validateInput: (value) => {
-                        if (!value) { return 'PR URL is required'; }
+                        if (!value) { return strings.pr_url_required; }
                         if (!value.includes('github.com') || !value.includes('/pull/')) {
-                            return 'Invalid GitHub PR URL format';
+                            return strings.pr_url_invalid;
                         }
                         return null;
                     }
                 });
-
+    
                 if (!prUrl) {
                     const retry = await vscode.window.showWarningMessage(
-                        'No PR URL provided. Would you like to try again?',
-                        'Yes',
-                        'No'
+                        strings.pr_url_missing,
+                        strings.yes,
+                        strings.no
                     );
-                    if (retry !== 'Yes') {
+                    if (retry !== strings.yes) {
                         retrying = false;
                         break;
                     }
                     continue;
                 }
-
+    
                 await this.createPullRequest(prUrl, newBranch, version);
                 retrying = false;
                 
             } catch (error: any) {
                 const retry = await vscode.window.showErrorMessage(
-                    `${error.message}. Would you like to try again?`,
-                    'Yes',
-                    'No'
+                    `${error.message}. ${strings.retry_prompt}`,
+                    strings.yes,
+                    strings.no
                 );
                 
-                if (retry !== 'Yes') {
+                if (retry !== strings.yes) {
                     retrying = false;
                     break;
                 }
-                // Continue loop to retry
             }
         }
     }

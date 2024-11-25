@@ -1,0 +1,221 @@
+en:
+  ## Language Selection
+  language_en: "English"
+  language_ja: "日本語"
+  language_selector: "Select Language"
+
+  ## Main Form Labels - WebviewService
+  repo_name_label: "Repository Name"
+  new_repo_label: "Or Add New Repository Name"
+  select_repository: "-- Select a repository --"
+  cherry_pick_label: "Cherry Pick Commit"
+  saved_versions_label: "Saved versions:"
+  versions_label: "Versions"
+  submit_button: "Start Backport"
+
+  ## StateService Status Messages
+  loading_text: "Processing..."
+  error_title: "Error"
+  success_title: "Success"
+  version_remove_title: "Remove version"
+
+  ## Branch Management - GitBranchService
+  branch_exists_title: "Branch already exists"
+  branch_exists_message: "Branch {0} already exists. What would you like to do?"
+  branch_auto_rename: "Auto-rename"
+  branch_auto_rename_desc: "Create branch with timestamp suffix"
+  branch_delete_recreate: "Delete and recreate"
+  branch_delete_recreate_desc: "Delete existing branch and create new one. This will delete local and remote branches."
+  branch_cancel: "Cancel"
+  branch_cancel_desc: "Abort branch creation"
+
+  ## Conflict Resolution - GitBranchService
+  conflict_resolve_title: "Resolve Conflicts"
+  conflict_resolve_message: "Would you like to resolve the conflicts? NOTE: Save after resolving conflicts to continue."
+  conflict_resolution_prompt: "Have you resolved all conflicts?"
+  conflict_resolution_detail: "Select \"Resolved\" if you have resolved all conflicts, \"Continue Editing\" to keep working, or \"Abort Cherry-pick\" to cancel."
+  conflict_resolved: "Resolved"
+  conflict_continue_editing: "Continue Editing"
+  conflict_abort: "Abort Cherry-pick"
+  resolve_conflicts_prompt: "Would you like to resolve the conflicts? NOTE: Save after resolving conflicts to continue."
+  resolve_conflicts_title: "Resolve Conflicts"
+
+  ## General Dialog Options
+  yes: "Yes"
+  no: "No"
+
+  ## Error Messages - GitBranchService
+  error_unknown: "Unknown error occurred"
+  error_branch_exists: "Branch {0} already exists"
+  error_permission_denied: "Permission denied - check your git credentials"
+  error_cherry_pick_failed: "Cherry-pick failed - conflicts detected"
+  error_not_found: "Remote branch or commit not found"
+  error_network: "Network error - check your connection"
+  error_branch_creation_failed: "Failed to create branch: {0}"
+
+  ## PullRequest Service Error Messages
+  error_pr_creation: "Failed to create pull request: {0}"
+  error_pr_fetch: "Failed to fetch pull request data: {0}"
+  error_repo_access: "Repository access error: {0}"
+  error_validation: "Validation failed: {0}"
+  error_pr_url: "Invalid PR URL: {0}"
+  retry_prompt: "Would you like to try again?"
+  pr_creating_title: "Creating Pull Request"
+  pr_fetching_data: "Fetching PR data..."
+  pr_generating_title: "Generating title..."
+  pr_creating: "Creating PR..."
+  pr_creation_cancelled: "PR creation cancelled"
+  pr_self_assign_prompt: "Self-assign PR?"
+  pr_self_assign_yes: "Yes"
+  pr_self_assign_yes_desc: "Assign PR to myself"
+  pr_self_assign_no: "No"
+  pr_self_assign_no_desc: "Assign PR to someone else"
+  pr_select_assignee: "Select assignee"
+  pr_select_reviewer: "Select reviewer"
+  pr_url_prompt: "Please provide the URL of the original PR:"
+  pr_url_required: "PR URL is required"
+  pr_url_invalid: "Invalid GitHub PR URL format"
+  pr_url_missing: "No PR URL provided. Would you like to try again?"
+  pr_parse_error: "Failed to parse PR data: {0}"
+  pr_no_title_body: "Invalid PR data received"
+  pr_repo_not_found: "Repository {0} not found or inaccessible"
+  pr_invalid_repo_format: "Repository must be in the format \"owner/repo\""
+  pr_branch_push_failed: "Failed to push branch {0} to remote"
+  pr_command_failed: "Command failed: {0}"
+  pr_no_version_found: "No PR found for version {0}"
+  pr_fetch_github_users: "Error fetching GitHub users:"
+
+  ## RepoService Messages
+  error_repo_name: "Could not determine full repository name for {0}"
+  rp_error_repo_access: "Cannot access repository {0}"
+  error_user_orgs: "Failed to fetch user organizations"
+  error_user_name: "Failed to fetch user name"
+
+  ## StateService Messages
+  error_panel_required: "Panel is required for language change"
+  error_unknown_message: "Unknown message type: {0}"
+  error_repo_required: "Repository name is required"
+  error_repo_empty: "Repository name cannot be empty"
+  error_version_empty: "Repository name and version cannot be empty"
+  error_version_required: "At least one version is required"
+  error_git_repo: "Not a valid git repository"
+  error_state_generic: "Error: {0}"
+
+  ## webview.ts Validation Messages
+  validation_versions_cherry_pick_required: "Versions and Cherry-pick branch are required."
+  validation_repo_name_required: "Please select a repository or enter a new repository name."
+  validation_repo_name_conflict: "Please provide either a new repository name or select an existing one, not both."
+  unknown_error_occurred: "An unknown error occurred."
+  remove_version: "Remove version"
+  processing_label: "Processing..."
+
+ja:
+  ## Language Selection
+  language_en: "英語"
+  language_ja: "日本語"
+  language_selector: "言語を選択"
+
+  ## Main Form Labels - WebviewService
+  repo_name_label: "リポジトリ名"
+  new_repo_label: "または新しいリポジトリ名を追加"
+  select_repository: "-- リポジトリを選択 --"
+  cherry_pick_label: "チェリーピックするコミット"
+  saved_versions_label: "保存されたバージョン:"
+  versions_label: "バージョン"
+  submit_button: "バックポート開始"
+
+  ## StateService Status Messages
+  loading_text: "処理中..."
+  error_title: "エラー"
+  success_title: "成功"
+  version_remove_title: "バージョンを削除"
+
+  ## Branch Management - GitBranchService
+  branch_exists_title: "ブランチが既に存在します"
+  branch_exists_message: "ブランチ {0} は既に存在します。どうしますか？"
+  branch_auto_rename: "自動リネーム"
+  branch_auto_rename_desc: "タイムスタンプを付けて新しいブランチを作成"
+  branch_delete_recreate: "削除して再作成"
+  branch_delete_recreate_desc: "既存のブランチを削除して新しく作成します。ローカルとリモートの両方のブランチが削除されます。"
+  branch_cancel: "キャンセル"
+  branch_cancel_desc: "ブランチの作成を中止"
+
+  ## Conflict Resolution - GitBranchService
+  conflict_resolve_title: "コンフリクトの解決"
+  conflict_resolve_message: "コンフリクトを解決しますか？注：解決後、保存してください。"
+  conflict_resolution_prompt: "すべてのコンフリクトを解決しましたか？"
+  conflict_resolution_detail: "「解決済み」を選択して続行、「編集を続ける」で作業を続行、または「チェリーピックを中止」でキャンセルします。"
+  conflict_resolved: "解決済み"
+  conflict_continue_editing: "編集を続ける"
+  conflict_abort: "チェリーピックを中止"
+  resolve_conflicts_prompt: "コンフリクトを解決しますか？注：解決後、保存してください。"
+  resolve_conflicts_title: "コンフリクトの解決"
+
+  ## General Dialog Options
+  yes: "はい"
+  no: "いいえ"
+
+  ## Error Messages - GitBranchService
+  error_unknown: "不明なエラーが発生しました"
+  error_branch_exists: "ブランチ {0} は既に存在します"
+  error_permission_denied: "権限がありません - Git認証情報を確認してください"
+  error_cherry_pick_failed: "チェリーピックに失敗しました - コンフリクトが検出されました"
+  error_not_found: "リモートブランチまたはコミットが見つかりません"
+  error_network: "ネットワークエラー - 接続を確認してください"
+  error_branch_creation_failed: "ブランチの作成に失敗しました: {0}"
+
+  ## PullRequest Service Error Messages
+  error_pr_creation: "プルリクエストの作成に失敗しました: {0}"
+  error_pr_fetch: "プルリクエストデータの取得に失敗しました: {0}"
+  error_repo_access: "リポジトリアクセスエラー: {0}"
+  error_validation: "検証に失敗しました: {0}"
+  error_pr_url: "無効なPR URLです: {0}"
+  retry_prompt: "もう一度試しますか？"
+  pr_creating_title: "プルリクエストを作成中"
+  pr_fetching_data: "PRデータを取得中..."
+  pr_generating_title: "タイトルを生成中..."
+  pr_creating: "PRを作成中..."
+  pr_creation_cancelled: "PR作成がキャンセルされました"
+  pr_self_assign_prompt: "自分にアサインしますか？"
+  pr_self_assign_yes: "はい"
+  pr_self_assign_yes_desc: "自分にアサインする"
+  pr_self_assign_no: "いいえ"
+  pr_self_assign_no_desc: "他の人にアサインする"
+  pr_select_assignee: "担当者を選択"
+  pr_select_reviewer: "レビュアーを選択"
+  pr_url_prompt: "元のPRのURLを入力してください："
+  pr_url_required: "PR URLは必須です"
+  pr_url_invalid: "無効なGitHub PR URLの形式です"
+  pr_url_missing: "PR URLが提供されていません。もう一度試しますか？"
+  pr_parse_error: "PRデータの解析に失敗しました: {0}"
+  pr_no_title_body: "無効なPRデータを受信しました"
+  pr_repo_not_found: "リポジトリ {0} が見つからないかアクセスできません"
+  pr_invalid_repo_format: "リポジトリは \"owner/repo\" の形式である必要があります"
+  pr_branch_push_failed: "ブランチ {0} をリモートにプッシュできませんでした"
+  pr_command_failed: "コマンドが失敗しました: {0}"
+  pr_no_version_found: "バージョン {0} のPRが見つかりません"
+  pr_fetch_github_users: "GitHubユーザーを取得できませんでした"
+
+  ## RepoService Messages
+  error_repo_name: "リポジトリ {0} の完全な名前を特定できませんでした"
+  error_user_orgs: "ユーザー組織の取得に失敗しました"
+  error_user_name: "ユーザー名の取得に失敗しました"
+  rp_error_repo_access: "リポジトリ {0} にアクセスできません"  # Moved to avoid duplicate
+
+  ## StateService Messages
+  error_panel_required: "言語変更にはパネルが必要です"
+  error_unknown_message: "不明なメッセージタイプ: {0}"
+  error_repo_required: "リポジトリ名は必須です"
+  error_repo_empty: "リポジトリ名を空にすることはできません"
+  error_version_empty: "リポジトリ名とバージョンを空にすることはできません"
+  error_version_required: "少なくとも1つのバージョンが必要です"
+  error_git_repo: "有効なGitリポジトリではありません"
+  error_state_generic: "エラー: {0}"
+
+  ## TODO: translate webview.ts Validation Messages
+  validation_versions_cherry_pick_required: "Versions and Cherry-pick branch are required."
+  validation_repo_name_required: "Please select a repository or enter a new repository name."
+  validation_repo_name_conflict: "Please provide either a new repository name or select an existing one, not both."
+  unknown_error_occurred: "An unknown error occurred."
+  remove_version: "Remove version"
+  processing_label: "Processing..."

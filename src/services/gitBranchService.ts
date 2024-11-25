@@ -3,12 +3,14 @@ import * as path from 'path';
 import { GitUtils } from '../utils/git';
 import { WorkspaceService } from './workspaceService';
 import { StateService } from './stateService';
+import { LanguageService } from './languageService';
 
 export class GitBranchService {
     private workspaceService: WorkspaceService;
 
     constructor(private readonly gitUtils: GitUtils,
-                private readonly stateService: StateService
+                private readonly stateService: StateService,
+                private readonly languageService: LanguageService
     ) {
         this.workspaceService = WorkspaceService.getInstance();
     }
@@ -114,81 +116,89 @@ export class GitBranchService {
         }
     }
 
-    // use at some point
     private async handleBranchCreationError(error: any, newBranch: string, originalBranch: string): Promise<void> {
         console.error('Branch creation failed:', error);
         
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
         // Categorize error type
-        let errorMessage = 'Unknown error occurred';
+        let errorMessage = strings.error_unknown;
         if (error.message.includes('already exists')) {
-            errorMessage = `Branch ${newBranch} already exists`;
+            errorMessage = strings.error_branch_exists.replace('{0}', newBranch);
         } else if (error.message.includes('Permission denied')) {
-            errorMessage = 'Permission denied - check your git credentials';
+            errorMessage = strings.error_permission_denied;
         } else if (error.message.includes('could not apply')) {
-            errorMessage = 'Cherry-pick failed - conflicts detected';
+            errorMessage = strings.error_cherry_pick_failed;
         } else if (error.message.includes('not found')) {
-            errorMessage = 'Remote branch or commit not found';
+            errorMessage = strings.error_not_found;
         } else if (error.message.includes('network')) {
-            errorMessage = 'Network error - check your connection';
+            errorMessage = strings.error_network;
         }
     
         // Always try to cleanup
         await this.cleanupAndRestore(newBranch, originalBranch);
-        vscode.window.showErrorMessage(`Failed to create branch: ${errorMessage}`);
+        vscode.window.showErrorMessage(strings.error_branch_creation_failed.replace('{0}', errorMessage));
     }
 
+
     private async handleExistingBranch(branchName: string): Promise<string | null> {
-        const choice = await vscode.window.showQuickPick([
-            { label: 'Auto-rename', description: 'Create branch with timestamp suffix' },
-            { label: 'Delete and recreate', description: 'Delete existing branch and create new one. This will delete local and remote branches.' },
-            { label: 'Cancel', description: 'Abort branch creation' }
-        ], {
-            placeHolder: `Branch ${branchName} already exists. What would you like to do?`
-        });
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
+        // Check if branch exists both locally and remotely
+        try {
+            const localExists = await this.gitUtils.branchExists(branchName);
+            const remoteExists = await this.gitUtils.remoteBranchExists(branchName);
     
-        switch (choice?.label) {
-            case 'Auto-rename':
-                return `${branchName}-${Date.now()}`;
-    
-            case 'Delete and recreate':
-                try {
-                    // Check if local branch exists and delete it
-                    const localExists = await this.gitUtils.branchExists(branchName);
-                    if (localExists) {
-                        const currentBranch = await this.gitUtils.execCommand('git rev-parse --abbrev-ref HEAD');
-                        if (currentBranch === branchName) {
-                            await this.gitUtils.execCommand('git checkout main');
-                        }
-                        await this.gitUtils.execCommand(`git branch -D ${branchName}`);
-                    }
-    
-                    // Safely check and delete remote branch if it exists
-                    const remoteExists = await this.gitUtils.execCommand(`git ls-remote --heads origin ${branchName}`)
-                        .then(output => output.length > 0)
-                        .catch(() => false);
-    
-                    if (remoteExists) {
-                        try {
-                            await this.gitUtils.execCommand(`git push origin --delete ${branchName}`);
-                        } catch (error) {
-                            // Remote branch might be already deleted - continue
-                            console.log(`Remote branch ${branchName} not found or already deleted`);
-                        }
-                    }
-                    return branchName;
-                } catch (error: any) {
-                    const newName = `${branchName}-${Date.now()}`;
-                    vscode.window.showWarningMessage(`Failed to delete branch. Creating ${newName} instead`);
-                    return newName;
-                }
-    
-            case 'Cancel':
-            default:
+            if (!localExists && !remoteExists) {
                 return null;
+            }
+    
+            // Show warning with options
+            const choice = await vscode.window.showWarningMessage(
+                strings.branch_exists_message.replace('{0}', branchName),
+                {
+                    modal: true,
+                    detail: `${strings.branch_exists_title}${remoteExists ? ' (local + remote)' : ' (local only)'}`
+                },
+                {
+                    title: strings.branch_auto_rename,
+                    description: strings.branch_auto_rename_desc,
+                    action: 'autoRename'
+                },
+                {
+                    title: strings.branch_delete_recreate,
+                    description: strings.branch_delete_recreate_desc,
+                    action: 'deleteRecreate'
+                },
+                {
+                    title: strings.branch_cancel,
+                    description: strings.branch_cancel_desc,
+                    action: 'cancel',
+                    isCloseAffordance: true
+                }
+            );
+    
+            if (choice?.action === 'deleteRecreate') {
+                // Delete both local and remote branches if they exist
+                if (localExists) {
+                    await this.gitUtils.execCommand(`git branch -D ${branchName}`);
+                }
+                if (remoteExists) {
+                    await this.gitUtils.execCommand(`git push origin --delete ${branchName}`);
+                }
+                return null; // Allow branch creation
+            }
+    
+            return choice?.action || 'cancel';
+        } catch (error) {
+            console.error(`Error handling existing branch: ${error}`);
+            return 'cancel';
         }
     }
 
     private async handleCherryPickConflict(branchName: string): Promise<boolean> {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
         try {
             const status = await this.gitUtils.execCommand('git status');
             const hasConflicts = status.includes('You have unmerged paths');
@@ -204,22 +214,45 @@ export class GitBranchService {
                 return true;
             }
     
-            await this.openConflictedFiles(conflictedFiles);
-            const resolved = await this.resolveConflicts(conflictedFiles);
-            
-            if (!resolved) {
-                // Silently abort without throwing error
-                try {
-                    await this.gitUtils.execCommand('git cherry-pick --abort');
-                } catch (error) {
-                    // Ignore abort errors
+            const response = await vscode.window.showWarningMessage(
+                strings.conflict_resolve_message,
+                { modal: true, detail: strings.conflict_resolve_title },
+                strings.yes,
+                strings.no
+            );
+    
+            if (response === strings.yes) {
+                await this.openConflictedFiles(conflictedFiles);
+                const resolved = await this.resolveConflicts(conflictedFiles);
+                
+                if (!resolved) {
+                    // Silently abort without throwing error
+                    try {
+                        await this.gitUtils.execCommand('git cherry-pick --abort');
+                    } catch (error) {
+                        // Ignore abort errors
+                    }
+                    
+                    await this.stateService.updateCherryPickState({
+                        inProgress: false,
+                        hasConflicts: false
+                    });
+                    
+                    return false;
                 }
-                return false;
+                return true;
             }
-            return true;
+    
+            // User chose not to resolve conflicts
+            await this.gitUtils.execCommand('git cherry-pick --abort');
+            await this.stateService.updateCherryPickState({
+                inProgress: false,
+                hasConflicts: false
+            });
+            return false;
     
         } catch (error) {
-            console.error('Unexpected error in cherry-pick conflict handling:', error);
+            console.error('Error handling cherry-pick conflict:', error);
             await this.stateService.updateCherryPickState({
                 inProgress: false,
                 hasConflicts: false
@@ -229,51 +262,34 @@ export class GitBranchService {
     }
     
     private async resolveConflicts(files: string[]): Promise<boolean> {
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
         try {
             console.log('Opening conflicted files:', files);
             await this.openConflictedFiles(files);
     
             // First ask if user wants to resolve conflicts
             const shouldResolve = await vscode.window.showInformationMessage(
-                'Would you like to resolve the conflicts? NOTE: Save after resolving conflicts to continue.',
-                { modal: true },
-                'Yes', 'No'
+                strings.resolve_conflicts_prompt,
+                { modal: true, detail: strings.resolve_conflicts_title },
+                strings.yes,
+                strings.no
             );
     
-            if (shouldResolve !== 'Yes') {
+            if (shouldResolve !== strings.yes) {
                 console.log('User declined to resolve conflicts');
                 await this.gitUtils.execCommand('git cherry-pick --abort');
                 return false;
             }
     
-            // Wait for actual conflict resolution
-            const resolution = await this.waitForConflictResolution(files);
-            if (resolution !== 'continue') {
-                console.log('User cancelled conflict resolution');
-                await this.gitUtils.execCommand('git cherry-pick --abort');
-                return false;
-            }
-    
-            // Stage resolved files before checking for remaining conflicts
-            await this.gitUtils.execCommand('git add .');
-            
-            // Give git a moment to process the staging
-            await new Promise(resolve => setTimeout(resolve, 500));
-    
-            // Verify conflicts are actually resolved
-            const status = await this.gitUtils.execCommand('git status');
-            if (status.includes('You have unmerged paths')) {
-                vscode.window.showWarningMessage('There are still unresolved conflicts');
-                return false;
-            }
-    
-            // Continue with cherry-pick
-            await this.gitUtils.execCommand('git cherry-pick --continue');
-            return true;
-    
+            return await this.waitForConflictResolution(files) === 'continue';
         } catch (error) {
-            console.error('Error in conflict resolution:', error);
-            await this.gitUtils.execCommand('git cherry-pick --abort');
+            console.error('Error resolving conflicts:', error);
+            try {
+                await this.gitUtils.execCommand('git cherry-pick --abort');
+            } catch (abortError) {
+                // Ignore abort errors
+            }
             return false;
         }
     }
@@ -321,74 +337,66 @@ export class GitBranchService {
         }
 
     private async waitForConflictResolution(files: string[]): Promise<'continue' | 'cancel'> {
-        const disposables: vscode.Disposable[] = [];
-        const watchers: vscode.FileSystemWatcher[] = [];
-    
+        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
+        
         try {
-            return await new Promise((resolve) => {
-                let isPromptShowing = false;
-                const debounceTime = 1000;
-                let debounceTimer: NodeJS.Timeout;
+            const choice = await vscode.window.showInformationMessage(
+                strings.conflict_resolution_prompt,
+                { modal: true, detail: strings.conflict_resolution_detail },
+                strings.conflict_resolved,
+                strings.conflict_continue_editing,
+                strings.conflict_abort
+            );
     
-                watchers.push(...files.map(file => 
-                    vscode.workspace.createFileSystemWatcher(
-                        new vscode.RelativePattern(this.workspaceService.workspacePath, file)
-                    )
-                ));
+            if (choice === strings.conflict_resolved) {
+                const remainingConflicts = await this.getConflictedFiles();
+                if (remainingConflicts.length > 0) {
+                    await this.openConflictedFiles(remainingConflicts);
+                    return await this.waitForConflictResolution(remainingConflicts);
+                }
     
-                const showPrompt = async () => {
-                    if (isPromptShowing) {return;}
-                    
-                    try {
-                        isPromptShowing = true;
-                        const choice = await vscode.window.showInformationMessage(
-                            'Have you resolved all conflicts?',
-                            {
-                                modal: true,
-                                detail: 'Select "Resolved" if you have resolved all conflicts, "Continue Editing" to keep working, or "Abort Cherry-pick" to cancel.'
-                            },
-                            { title: 'Resolved', isCloseAffordance: false },
-                            { title: 'Continue Editing', isCloseAffordance: false },
-                            { title: 'Abort Cherry-pick', isCloseAffordance: true }
-                        );
-                
-                        if (choice?.title === 'Resolved') {
-                            resolve('continue');
-                        } else if (choice?.title === 'Abort Cherry-pick') {
-                            resolve('cancel');
-                        }
-                        // "Continue Editing" does nothing, allowing the user to keep working
-                    } catch (error) {
-                        console.error('Dialog was canceled:', error);
-                        resolve('cancel');
-                    } finally {
-                        isPromptShowing = false;
-                    }
-                };
+                try {
+                    await this.gitUtils.execCommand('git cherry-pick --continue');
+                    await this.stateService.updateCherryPickState({
+                        inProgress: false,
+                        hasConflicts: false
+                    });
+                    return 'continue';
+                } catch (error) {
+                    console.error('Error continuing cherry-pick:', error);
+                    return 'cancel';
+                }
+            }
     
-                // Add save listener
-                disposables.push(
-                    vscode.workspace.onDidSaveTextDocument(doc => {
-                        if (files.some(f => doc.uri.fsPath.endsWith(f))) {
-                            showPrompt();
-                        }
-                    })
-                );
+            if (choice === strings.conflict_continue_editing) {
+                await this.openConflictedFiles(files);
+                return await this.waitForConflictResolution(files);
+            }
     
-                // Add change listeners
-                watchers.forEach(watcher => {
-                    disposables.push(
-                        watcher.onDidChange(() => {
-                            clearTimeout(debounceTimer);
-                            debounceTimer = setTimeout(showPrompt, debounceTime);
-                        })
-                    );
-                });
+            // User chose to abort or dialog was dismissed
+            try {
+                await this.gitUtils.execCommand('git cherry-pick --abort');
+            } catch (error) {
+                // Ignore abort errors
+            }
+    
+            await this.stateService.updateCherryPickState({
+                inProgress: false,
+                hasConflicts: false
             });
-        } finally {
-            // Ensure cleanup happens
-            disposables.forEach(d => d.dispose());
-            watchers.forEach(w => w.dispose());
+            return 'cancel';
+        } catch (error) {
+            console.error('Error in conflict resolution:', error);
+            try {
+                await this.gitUtils.execCommand('git cherry-pick --abort');
+            } catch (abortError) {
+                // Ignore abort errors
+            }
+            await this.stateService.updateCherryPickState({
+                inProgress: false,
+                hasConflicts: false
+            });
+            return 'cancel';
         }
     }
 

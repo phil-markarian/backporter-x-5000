@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { StateData, WebviewMessage, MessageType, PendingBranch} from '../types';
 import { GitUtils } from '../utils/git';
+import { LanguageService } from './languageService';
 
 export class StateService {
     private state: StateData;
@@ -12,7 +13,8 @@ export class StateService {
 
     constructor(
         private readonly context: vscode.ExtensionContext,
-        private readonly gitUtils: GitUtils
+        private readonly gitUtils: GitUtils,
+        private readonly languageService: LanguageService
     ) {
         this.state = this.initializeState();
     }
@@ -26,30 +28,97 @@ export class StateService {
         };
     }
 
+    async handleLanguageChange(message: WebviewMessage, panel: vscode.WebviewPanel): Promise<void> {
+        console.log('[StateService] Language change requested:', message.payload);
+        const newLanguage = message.payload.language;
+        await this.languageService.changeLanguage(newLanguage);
+        
+        // Get complete strings for the new language
+        const strings = this.languageService.getStringsForLanguage(newLanguage);
+        
+        // Send both language and strings to webview
+        panel.webview.postMessage({
+            type: 'languageUpdate',
+            payload: {
+                language: newLanguage,
+                strings: strings,
+                labels: {
+                    repoNameLabel: strings.repo_name_label,
+                    selectRepository: strings.select_repository,
+                    newRepoLabel: strings.new_repo_label,
+                    savedVersionsLabel: strings.saved_versions_label,
+                    versionsLabel: strings.versions_label,
+                    cherryPickLabel: strings.cherry_pick_label,
+                    submitButton: strings.submit_button,
+                    loadingText: strings.loading_text,
+                    errorTitle: strings.error_title,
+                    successTitle: strings.success_title,
+                    languageSelector: strings.language_selector,
+                    versionRemoveTitle: strings.version_remove_title
+                }
+            }
+        });
+    }
+
     async handleMessage(message: WebviewMessage, panel?: vscode.WebviewPanel): Promise<void> {
+        const strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
+
         try {
+            console.log('[StateService] Handling message type:', message.type);
+        
             switch (message.type as MessageType) {
                 case 'error':
-                    await this.handleError(message);
+                    vscode.window.showErrorMessage(
+                    strings.error_state_generic.replace('{0}', message.payload)
+                    );
                     break;
                 case 'test':
                     this.handleTest(message);
                     break;
                 case 'loadSavedVersions':
+                    if (!message.payload?.repoName) {
+                        vscode.window.showErrorMessage(strings.error_repo_required);
+                        return;
+                    }
                     await this.handleLoadSavedVersions(message, panel!);
                     break;
                 case 'deleteVersion':
+                    if (!message.payload?.repoName || !message.payload?.version) {
+                        vscode.window.showErrorMessage(strings.error_version_empty);
+                        return;
+                    }
                     await this.handleDeleteVersion(message, panel!);
                     break;
                 case 'formSubmit':
                     await this.handleFormSubmit(message);
                     break;
+                case 'webviewReady':
+                    if (panel) {
+                        const currentLanguage = this.languageService.getCurrentLanguage();
+                        panel.webview.postMessage({
+                            type: 'initialLanguage',
+                            payload: currentLanguage
+                        });
+                    }
+                    break;
+                case 'languageChange':
+                    if (!panel) {
+                        throw new Error('Panel is required for language change');
+                    }
+                    console.log('[StateService] Processing language change:', message.payload);
+                    await this.handleLanguageChange(message, panel);
+                    break;
                 default:
                     console.error('Unknown message type:', message.type);
             }
         } catch (error) {
-            console.error('Error handling message:', error);
-            vscode.window.showErrorMessage(`Error: ${error}`);
+            console.error('[StateService] Error:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(
+                strings.error_state_generic.replace('{0}', errorMessage)
+            );
         }
     }
 
