@@ -28,6 +28,10 @@ en:
   branch_delete_recreate_desc: "Delete existing branch and create new one. This will delete local and remote branches."
   branch_cancel: "Cancel"
   branch_cancel_desc: "Abort branch creation"
+  error_branch_delete_current: "Cannot delete the currently checked out branch. Please checkout a different branch first."
+  remote_branch_delete_confirm: "You are currently trying to create a remote branch that already exists? Would you like to delete the remote branch {0}?"
+  error_remote_branch_delete: "Failed to delete remote branch {0}. The branch may not exist remotely or you may not have permission."
+  error_remote_branch_delete_unknown: "An unexpected error occurred while deleting remote branch {0}."
 
   ## Conflict Resolution - GitBranchService
   conflict_resolve_title: "Resolve Conflicts"
@@ -139,6 +143,10 @@ ja:
   branch_delete_recreate_desc: "既存のブランチを削除して新しく作成します。ローカルとリモートの両方のブランチが削除されます。"
   branch_cancel: "キャンセル"
   branch_cancel_desc: "ブランチの作成を中止"
+  error_branch_delete_current: "現在チェックアウトされているブランチを削除できません。別のブランチをチェックアウトしてからバックポートを行なってください。"
+  remote_branch_delete_confirm: "You are currently trying to create a remote branch that already exists? Would you like to delete the remote branch {0}?"
+  error_remote_branch_delete: "Failed to delete remote branch {0}. The branch may not exist remotely or you may not have permission."
+  error_remote_branch_delete_unknown: "An unexpected error occurred while deleting remote branch {0}."
 
   ## Conflict Resolution - GitBranchService
   conflict_resolve_title: "コンフリクトの解決"

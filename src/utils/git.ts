@@ -81,63 +81,41 @@ export class GitUtils {
         }
     }
 
-    async branchExists(branchName: string): Promise<boolean> {
+    async localBranchExists(branchName: string): Promise<boolean> {
         try {
+            const cleanBranchName = this.normalizeBranchName(branchName);
             const localBranches = await this.execCommand('git branch --list');
-            const remoteBranches = await this.execCommand('git branch -r --list');
-    
-            // Normalize branch name
-            const cleanBranchName = branchName
-                .replace('refs/heads/', '')
-                .replace('refs/remotes/origin/', '')
-                .trim();
-    
-            // Check local branches
-            const localExists = localBranches
+            const exists = localBranches
                 .split('\n')
                 .map(b => b.replace('*', '').trim())
                 .some(b => b === cleanBranchName);
     
-            // Check remote branches
-            const remoteExists = remoteBranches
-                .split('\n')
-                .map(b => b.trim().replace('origin/', ''))
-                .some(b => b === cleanBranchName);
-    
-            console.log('Branch existence check:', {
-                original: branchName,
-                normalized: cleanBranchName,
-                localExists,
-                remoteExists
+            console.log('Local branch check:', {
+                branchName,
+                cleanBranchName,
+                exists
             });
     
-            return localExists || remoteExists;
+            return exists;
         } catch (error) {
-            console.error('Error checking branch existence:', error);
+            console.error('Error checking local branch:', error);
             return false;
         }
     }
     
     async remoteBranchExists(branchName: string): Promise<boolean> {
         try {
-            const branches = await this.execCommand('git branch -r --list');
-            
-            // Normalize branch name
-            const cleanBranchName = branchName
-                .replace('refs/remotes/origin/', '')
-                .replace('origin/', '')
-                .trim();
-    
-            const exists = branches
+            const cleanBranchName = this.normalizeBranchName(branchName);
+            const remoteBranches = await this.execCommand('git branch -r --list');
+            const exists = remoteBranches
                 .split('\n')
                 .map(b => b.trim().replace('origin/', ''))
                 .some(b => b === cleanBranchName);
     
             console.log('Remote branch check:', {
-                original: branchName,
-                normalized: cleanBranchName,
-                exists,
-                branches: branches.split('\n').filter(Boolean)
+                branchName,
+                cleanBranchName,
+                exists
             });
     
             return exists;
@@ -145,6 +123,30 @@ export class GitUtils {
             console.error('Error checking remote branch:', error);
             return false;
         }
+    }
+    
+    async branchExists(branchName: string, checkRemote: boolean = true): Promise<boolean> {
+        const [localExists, remoteExists] = await Promise.all([
+            this.localBranchExists(branchName),
+            checkRemote ? this.remoteBranchExists(branchName) : Promise.resolve(false)
+        ]);
+    
+        console.log('Branch existence check:', {
+            branchName,
+            localExists,
+            remoteExists,
+            checkRemote
+        });
+    
+        return localExists || (checkRemote && remoteExists);
+    }
+    
+    private normalizeBranchName(branchName: string): string {
+        return branchName
+            .replace('refs/heads/', '')
+            .replace('refs/remotes/origin/', '')
+            .replace('origin/', '')
+            .trim();
     }
 
     async getBranchNameFromCommit(commitHash: string): Promise<string> {
