@@ -79,11 +79,13 @@ export class WebviewService {
     }
 
     private languageSelector(currentLanguage: string): string {
-        console.log('[WebviewService] Creating language selector with language:', currentLanguage);
-        const languages = [
-            { code: 'en', name: this.languageService.getString('language_en', 'en') },
-            { code: 'ja', name: this.languageService.getString('language_ja', 'en') }
-        ];
+        const availableLanguages = this.languageService.getAvailableLanguages();
+        const defaultLanguage = availableLanguages[0]; // First language in yaml becomes default
+        
+        const languages = availableLanguages.map(code => ({
+            code,
+            name: this.languageService.getString(`language_${code}`, defaultLanguage)
+        }));
     
         return `
             <div class="language-selector">
@@ -129,14 +131,14 @@ cspSource: string, scriptUri: vscode.Uri, savedReposOptions: string, styles: str
                 <meta charset="UTF-8">
                 ${this.getCspTag(cspSource)}
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Backporter X-5000</title>
+                <title>${strings.webview_title}</title>
                 <style>${styles}</style>
             </head>
             <body>
                 <div class="container">
                     <div class="left-side">
                         <div class="header-container">
-                        <h1>Backporter X-5000</h1>
+                        <h1>${strings.webview_title}</h1>
                         ${this.languageSelector(currentLanguage)}
                         </div>
                         <form id="backportForm">
