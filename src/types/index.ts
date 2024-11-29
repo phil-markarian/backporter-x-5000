@@ -3,15 +3,6 @@ export interface PRData {
     body: string;
 }
 
-export interface VersionPrUrls {
-    [version: string]: string;
-}
-
-export interface GitCommandOptions {
-    showOutput?: boolean;
-    throwOnError?: boolean;
-}
-
 export interface SavedVersions {
     [key: string]: string[];
 }
@@ -39,15 +30,6 @@ export type MessageType =
     | 'loading'
     | 'validationError'
     | 'webviewReady';
-
-export type LanguageMessage = {
-    type: 'languageChange' | 'getLanguageString';
-    payload: {
-        language?: string;
-        key?: string;
-        keys?: string[];
-    };
-};
 
 export interface StateData {
     savedVersions: { [key: string]: string[] };
