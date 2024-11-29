@@ -236,7 +236,7 @@ declare function acquireVsCodeApi(): any;
         }
 
         if (!data.prUrl.includes('github.com') || !data.prUrl.includes('/pull/')) {
-            return { isValid: false, error: strings.pr_url_invalid };
+            return { isValid: false, error: strings.error_invalid_pr_url };
         }
 
         const hasNewRepoName = data.newRepoName.trim() !== '';
