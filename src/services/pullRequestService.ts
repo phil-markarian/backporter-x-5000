@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { GitUtils } from '../utils/git';
 import { RepoService } from '../services/repoService';
-import { PRData, VersionPrUrls } from '../types';
+import { PRData } from '../types';
 import { LanguageService } from './languageService';
 
 export class PullRequestService {
@@ -236,54 +236,6 @@ export class PullRequestService {
         } catch (error: any) {
             vscode.window.showErrorMessage(`${this.strings.pr_fetch_github_users_failed}: ${error.message}`);
             return [];
-        }
-    }
-
-    public async getPRUrlWithRetry(repoName: string, newBranch: string, version: string): Promise<void> {
-        let retrying = true;
-        
-        while (retrying) {
-            try {
-                const prUrl = await vscode.window.showInputBox({
-                    prompt: this.strings.pr_url_prompt,
-                    ignoreFocusOut: true,
-                    validateInput: (value) => {
-                        if (!value) { return this.strings.pr_url_required; }
-                        if (!value.includes('github.com') || !value.includes('/pull/')) {
-                            return this.strings.pr_url_invalid;
-                        }
-                        return null;
-                    }
-                });
-
-                if (!prUrl) {
-                    const retry = await vscode.window.showWarningMessage(
-                        this.strings.pr_url_missing,
-                        this.strings.yes,
-                        this.strings.no
-                    );
-                    if (retry !== this.strings.yes) {
-                        retrying = false;
-                        break;
-                    }
-                    continue;
-                }
-
-                await this.createPullRequest(prUrl, newBranch, version);
-                retrying = false;
-                
-            } catch (error: any) {
-                const retry = await vscode.window.showErrorMessage(
-                    `${error.message}. ${this.strings.retry_prompt}`,
-                    this.strings.yes,
-                    this.strings.no
-                );
-                
-                if (retry !== this.strings.yes) {
-                    retrying = false;
-                    break;
-                }
-            }
         }
     }
 
