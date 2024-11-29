@@ -349,4 +349,23 @@ export class GitUtils {
         const output = await this.execCommand(command);
         return output.split('\n').filter(user => user.trim());
     }
+
+    async validatePrUrl(prUrl: string): Promise<boolean> {
+        try {
+            const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+            if (!urlMatch) {
+                return false;
+            }
+            
+            const [, owner, repo, prNumber] = urlMatch;
+            const fullRepoName = `${owner}/${repo}`;
+            
+            // Check if PR exists using GitHub CLI
+            await this.execCommand(`gh pr view ${prNumber} --repo ${fullRepoName}`);
+            return true;
+        } catch (error) {
+            console.error('Error validating PR URL:', error);
+            return false;
+        }
+    }
 }
