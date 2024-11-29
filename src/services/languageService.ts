@@ -5,6 +5,7 @@ import * as path from 'path';
 
 export class LanguageService {
     private currentLanguage: string;
+    private defaultLanguage: string;
     private languageStrings: Record<string, Record<string, string>> = {};
 
     constructor(private readonly context: vscode.ExtensionContext) {
@@ -14,8 +15,9 @@ export class LanguageService {
         // Load language strings first
         this.loadLanguageStrings();
         
-        // Force English as default
-        this.currentLanguage = 'en';
+        // Set default from yaml
+        this.defaultLanguage = Object.keys(this.languageStrings)[0] || 'en';
+        this.currentLanguage = this.defaultLanguage;
         
         // Only allow overriding with saved preference if it's valid
         const savedLanguage = this.context.globalState.get<string>('preferredLanguage');
@@ -24,11 +26,8 @@ export class LanguageService {
         if (savedLanguage && this.languageStrings[savedLanguage]) {
             this.currentLanguage = savedLanguage;
         } else {
-            // Persist English as default
-            console.log('[LanguageService] Setting default language: en');
-            this.context.globalState.update('preferredLanguage', 'en');
+            this.context.globalState.update('preferredLanguage', this.defaultLanguage);
         }
-        
         console.log('[LanguageService] Initialized with language:', this.currentLanguage);
     }
 
@@ -61,7 +60,7 @@ export class LanguageService {
         }
     }
 
-    // TODO: is getString and the below methods necessary?
+    // used in webviewService for language selection
     getString(key: string, language?: string): string {
         const lang = language || this.currentLanguage;
         return this.languageStrings[lang]?.[key] || key;
@@ -74,11 +73,17 @@ export class LanguageService {
     async changeLanguage(newLanguage: string): Promise<void> {
         console.log('[LanguageService] Changing language from', this.currentLanguage, 'to', newLanguage);
         
+        // Store current language before attempting change
+        const previousLanguage = this.currentLanguage;
+        
         if (!this.languageStrings[newLanguage]) {
-            console.error(`Language ${newLanguage} not found`);
+            vscode.window.showErrorMessage(this.getString('error_invalid_language'));
+            // Keep previous language
+            this.currentLanguage = previousLanguage;
+            await this.context.globalState.update('preferredLanguage', previousLanguage);
             return;
         }
-
+    
         this.currentLanguage = newLanguage;
         await this.context.globalState.update('preferredLanguage', newLanguage);
         console.log('[LanguageService] Language updated to:', this.currentLanguage);
@@ -86,7 +91,7 @@ export class LanguageService {
 
     getCurrentLanguage(): string {
         console.log('[LanguageService] Getting current language:', this.currentLanguage);
-        return this.currentLanguage || 'en'; // Failsafe to always return 'en' if undefined
+        return this.currentLanguage || this.defaultLanguage;
     }
 
     getAvailableLanguages(): string[] {
