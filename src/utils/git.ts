@@ -81,6 +81,27 @@ export class GitUtils {
         }
     }
 
+    async remoteBranchExists(branchName: string): Promise<boolean> {
+        try {
+            const cleanBranchName = this.normalizeBranchName(branchName);
+            const remoteCheck = await this.execCommand(`git ls-remote --heads origin ${cleanBranchName}`)
+                .then(output => output.length > 0)
+                .catch(() => false);
+    
+            console.log('Remote branch check:', {
+                branchName,
+                cleanBranchName,
+                exists: remoteCheck,
+                method: 'ls-remote'
+            });
+    
+            return remoteCheck;
+        } catch (error) {
+            console.error('Error checking remote branch:', error);
+            return false;
+        }
+    }
+    
     async localBranchExists(branchName: string): Promise<boolean> {
         try {
             const cleanBranchName = this.normalizeBranchName(branchName);
@@ -93,34 +114,13 @@ export class GitUtils {
             console.log('Local branch check:', {
                 branchName,
                 cleanBranchName,
-                exists
+                exists,
+                branches: localBranches.split('\n').map(b => b.trim())
             });
     
             return exists;
         } catch (error) {
             console.error('Error checking local branch:', error);
-            return false;
-        }
-    }
-    
-    async remoteBranchExists(branchName: string): Promise<boolean> {
-        try {
-            const cleanBranchName = this.normalizeBranchName(branchName);
-            const remoteBranches = await this.execCommand('git branch -r --list');
-            const exists = remoteBranches
-                .split('\n')
-                .map(b => b.trim().replace('origin/', ''))
-                .some(b => b === cleanBranchName);
-    
-            console.log('Remote branch check:', {
-                branchName,
-                cleanBranchName,
-                exists
-            });
-    
-            return exists;
-        } catch (error) {
-            console.error('Error checking remote branch:', error);
             return false;
         }
     }
@@ -139,6 +139,33 @@ export class GitUtils {
         });
     
         return localExists || (checkRemote && remoteExists);
+    }
+
+    async getCurrentBranch(): Promise<string> {
+        try {
+            const branchName = await this.execCommand('git rev-parse --abbrev-ref HEAD');
+            const cleanBranchName = this.normalizeBranchName(branchName);
+            
+            console.log('Current branch check:', {
+                original: branchName,
+                normalized: cleanBranchName
+            });
+            
+            return cleanBranchName;
+        } catch (error) {
+            console.error('Error getting current branch:', error);
+            throw new Error('Failed to get current branch');
+        }
+    }
+
+    async abortCherryPick(): Promise<void> {
+        try {
+            await this.execCommand('git cherry-pick --abort');
+            console.log('Cherry-pick abort successful');
+        } catch (error) {
+            // Don't throw since abort is typically called in cleanup scenarios
+            console.error('Error aborting cherry-pick:', error);
+        }
     }
     
     private normalizeBranchName(branchName: string): string {
@@ -168,5 +195,158 @@ export class GitUtils {
             console.error('Error getting branch name:', error);
             return 'cherry-pick';
         }
+    }
+    
+    async checkout(branch: string): Promise<void> {
+        await this.execCommand(`git checkout ${branch}`);
+    }
+    
+    async createBranch(branchName: string): Promise<void> {
+        await this.execCommand(`git checkout -b ${branchName}`);
+    }
+    
+    async cherryPick(commitHash: string, isMergeCommit: boolean = false): Promise<void> {
+        const cmd = isMergeCommit 
+            ? `git cherry-pick -m 1 ${commitHash}`
+            : `git cherry-pick ${commitHash}`;
+        await this.execCommand(cmd);
+    }
+    
+    async fetchAll(): Promise<void> {
+        await this.execCommand('git fetch --all');
+    }
+    
+    async push(branch: string): Promise<void> {
+        await this.execCommand(`git push -u origin ${branch}`);
+    }
+    
+    async deleteBranch(branchName: string, force: boolean = false): Promise<void> {
+        const flag = force ? '-D' : '-d';
+        await this.execCommand(`git branch ${flag} ${branchName}`);
+    }
+    
+    async deleteRemoteBranch(branchName: string): Promise<void> {
+        await this.execCommand(`git push origin --delete ${branchName}`);
+    }
+    
+    async resetHard(): Promise<void> {
+        await this.execCommand('git reset --hard');
+    }
+    
+    async addAll(): Promise<void> {
+        await this.execCommand('git add .');
+    }
+
+    async getRemoteUrl(): Promise<string> {
+        try {
+            return await this.execCommand('git remote get-url origin');
+        } catch (error) {
+            console.error('Error getting remote URL:', error);
+            throw new Error('Failed to get remote URL');
+        }
+    }
+    
+    async cherryPickContinue(): Promise<void> {
+        await this.execCommand('git cherry-pick --continue');
+    }
+    
+    async getStatus(): Promise<string> {
+        return this.execCommand('git status');
+    }
+    
+    async validateCommitExists(commitHash: string): Promise<boolean> {
+        return this.execCommand(`git cat-file -t ${commitHash}`)
+            .then(() => true)
+            .catch(() => false);
+    }
+
+    async getConflictedFiles(): Promise<string[]> {
+        const output = await this.execCommand('git diff --name-only --diff-filter=U');
+        return output.split('\n').filter(file => file.trim());
+    }
+
+    async viewRepo(repoName: string): Promise<void> {
+        await this.execCommand(`gh repo view ${repoName}`);
+    }
+    
+    async getCurrentUser(): Promise<string> {
+        return this.execCommand('gh api user --jq .login');
+    }
+    
+    async getCollaboratorPermission(repoName: string, username: string): Promise<string> {
+        const cmd = `gh api repos/${repoName}/collaborators/${username.trim()}/permission --jq .permission`;
+        return this.execCommand(cmd);
+    }
+    
+    async getOrgMembership(org: string, username: string): Promise<string> {
+        const cmd = `gh api orgs/${org}/memberships/${username.trim()} --jq .state`;
+        return this.execCommand(cmd);
+    }
+    
+    async getPrData(prNumber: string, repoName: string): Promise<string> {
+        const cmd = `gh pr view ${prNumber} --repo ${repoName} --json title,body`;
+        return this.execCommand(cmd);
+    }
+    
+    async createPr(options: {
+        repo: string,
+        head: string,
+        base: string,
+        title: string,
+        body: string
+    }): Promise<string> {
+        const cmd = `gh pr create --repo ${options.repo} \
+            --head ${options.head} \
+            --base ${options.base} \
+            --title "${options.title}" \
+            --body "${options.body}"`;
+        return this.execCommand(cmd);
+    }
+    
+    async editPr(options: {
+        number: string,
+        repo: string,
+        assignee?: string,
+        reviewer?: string
+    }): Promise<void> {
+        if (options.assignee) {
+            const assignCmd = options.assignee === '@self'
+                ? `gh pr edit ${options.number} --repo ${options.repo} --add-assignee "@me"`
+                : `gh pr edit ${options.number} --repo ${options.repo} --add-assignee "${options.assignee.substring(1)}"`;
+            await this.execCommand(assignCmd);
+        }
+        
+        if (options.reviewer) {
+            await this.execCommand(
+                `gh pr edit ${options.number} --repo ${options.repo} --add-reviewer "${options.reviewer.substring(1)}"`
+            );
+        }
+    }
+    
+    async listPrs(options: {
+        repo: string,
+        state?: string,
+        head?: string,
+        search?: string,
+        format?: string
+    }): Promise<string> {
+        let cmd = `gh pr list --repo ${options.repo}`;
+        if (options.state) {cmd += ` --state ${options.state}`;}
+        if (options.head) {cmd += ` --head ${options.head}`;}
+        if (options.search) {cmd += ` --search "${options.search}"`;}
+        if (options.format) {cmd += ` --json ${options.format}`;}
+        return this.execCommand(cmd);
+    }
+    
+    async getRepoCollaborators(repoName: string): Promise<string[]> {
+        const command = `gh api repos/${repoName}/collaborators --jq '.[].login'`;
+        const output = await this.execCommand(command);
+        return output.split('\n').filter(user => user.trim());
+    }
+    
+    async getOrgMembers(org: string): Promise<string[]> {
+        const command = `gh api orgs/${org}/members --jq '.[].login'`;
+        const output = await this.execCommand(command);
+        return output.split('\n').filter(user => user.trim());
     }
 }
