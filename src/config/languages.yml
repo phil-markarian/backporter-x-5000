@@ -2,7 +2,7 @@ en:
   ## Language Selection
   language_en: "English"
   language_ja: "日本語"
-  language_selector: "Select Language"
+  error_invalid_language: "Selected language is not available. Using English."
 
   ## Main Form Labels - WebviewService
   repo_name_label: "Repository Name"
@@ -14,6 +14,21 @@ en:
   submit_button: "Start Backport"
   pr_url_field_label: "Original PR URL"
   pr_url_field_placeholder: "Paste GitHub PR URL here"
+
+
+  webview_title: "Backporter X-5000"
+  webview_script_not_found: "webview.js not found"
+  webview_image_not_found: "Side image not found"
+  # v3 peossible feature 
+  webview_pr_found_title: "Found PR from commit:"
+  webview_pr_not_found: "No PR found"
+  webview_use_pr_button: "Use this PR"
+  webview_search_pr_button: "Search for different PR"
+  webview_search_placeholder: "Search PRs..."
+  webview_edit_pr_title: "Edit PR Details:"
+  webview_pr_title_placeholder: "PR Title"
+  webview_pr_body_placeholder: "PR Description"
+  webview_save_changes: "Save Changes"
 
   ## StateService Status Messages
   loading_text: "Processing..."
@@ -90,12 +105,10 @@ en:
   pr_command_failed: "Command failed: {0}"
   pr_no_version_found: "No PR found for version {0}"
   pr_fetch_github_users: "Error fetching GitHub users:"
-
-  ## RepoService Messages
-  error_repo_name: "Could not determine full repository name for {0}"
-  rp_error_repo_access: "Cannot access repository {0}"
-  error_user_orgs: "Failed to fetch user organizations"
-  error_user_name: "Failed to fetch user name"
+  pr_init_failed: "Failed to initialize PR service: {0}"
+  pr_invalid_repo_permissions: "Insufficient permissions for repository {0}"
+  pr_validation_failed: "Repository validation failed: {0}"
+  pr_fetch_github_users_failed: "Failed to fetch GitHub users"
 
   ## StateService Messages
   error_panel_required: "Panel is required for language change"
@@ -106,6 +119,28 @@ en:
   error_version_required: "At least one version is required"
   error_git_repo: "Not a valid git repository"
   error_state_generic: "Error: {0}"
+  error_invalid_pr_url: "Invalid GitHub PR URL format"
+
+  ## GitUtils Messages
+  git_error_repo_name: "Could not determine full repository name for {0}"
+  git_error_user_orgs: "Failed to fetch user organizations"
+  git_error_user_name: "Failed to fetch user name"
+  git_error_repo_access: "Cannot access repository {0}"
+  git_error_command: "Command failed: {0}"
+  git_error_validation: "Git validation failed: {0}"
+  git_error_branch: "Failed to get current branch"
+  git_error_remote_url: "Failed to get remote URL"
+  git_error_merge_check: "Error checking if commit is a merge commit"
+  git_error_cherry_pick_abort: "Error aborting cherry-pick"
+  git_error_branch_name: "Error getting branch name from commit"
+  git_error_status: "Error getting git status"
+  git_error_commit_exists: "Error validating commit exists"
+  git_error_conflicted_files: "Error getting conflicted files"
+  git_error_collaborator: "Error checking collaborator permissions"
+  git_error_org_membership: "Error checking organization membership"
+  git_error_pr_create: "Error creating pull request"
+  git_error_pr_edit: "Error editing pull request"
+  git_error_pr_list: "Error listing pull requests"
 
   ## webview.ts Validation Messages
   validation_versions_cherry_pick_required: "Versions and Cherry-pick branch are required."
@@ -114,12 +149,13 @@ en:
   unknown_error_occurred: "An unknown error occurred."
   remove_version: "Remove version"
   processing_label: "Processing..."
+  invalid_commit_format: "Invalid commit hash format."
 
 ja:
   ## Language Selection
-  language_en: "英語"
+  language_en: "English"
   language_ja: "日本語"
-  language_selector: "言語を選択"
+  error_invalid_language: "選択された言語は利用できません。日本語を使用します。"
 
   ## Main Form Labels - WebviewService
   repo_name_label: "リポジトリ名"
@@ -131,6 +167,20 @@ ja:
   submit_button: "バックポート開始"
   pr_url_field_label: "元のPR URL"
   pr_url_field_placeholder: "GitHub PR URLを貼り付けてください"
+
+  webview_title: "バックポーターX-5000"
+  webview_script_not_found: "webview.jsが見つかりません"
+  webview_image_not_found: "サイド画像が見つかりません"
+  # v3 peossible feature 
+  webview_pr_found_title: "コミットからPRが見つかりました:"
+  webview_pr_not_found: "PRが見つかりません"
+  webview_use_pr_button: "このPRを使用"
+  webview_search_pr_button: "別のPRを検索"
+  webview_search_placeholder: "PR検索..."
+  webview_edit_pr_title: "PR詳細の編集:"
+  webview_pr_title_placeholder: "PRタイトル"
+  webview_pr_body_placeholder: "PR説明"
+  webview_save_changes: "変更を保存"
 
   ## StateService Status Messages
   loading_text: "処理中..."
@@ -207,12 +257,10 @@ ja:
   pr_command_failed: "コマンドが失敗しました: {0}"
   pr_no_version_found: "バージョン {0} のPRが見つかりません"
   pr_fetch_github_users: "GitHubユーザーを取得できませんでした"
-
-  ## RepoService Messages
-  error_repo_name: "リポジトリ {0} の完全な名前を特定できませんでした"
-  error_user_orgs: "ユーザー組織の取得に失敗しました"
-  error_user_name: "ユーザー名の取得に失敗しました"
-  rp_error_repo_access: "リポジトリ {0} にアクセスできません"  # Moved to avoid duplicate
+  pr_init_failed: "PRサービスの初期化に失敗しました: {0}"
+  pr_invalid_repo_permissions: "リポジトリ {0} に対する権限が不足しています"
+  pr_validation_failed: "リポジトリの検証に失敗しました: {0}"
+  pr_fetch_github_users_failed: "GitHubユーザーの取得に失敗しました"
 
   ## StateService Messages
   error_panel_required: "言語変更にはパネルが必要です"
@@ -224,6 +272,27 @@ ja:
   error_git_repo: "有効なGitリポジトリではありません"
   error_state_generic: "エラー: {0}"
 
+  ## GitUtils Messages
+  git_error_repo_name: "リポジトリ {0} の完全な名前を特定できませんでした"
+  git_error_user_orgs: "ユーザー組織の取得に失敗しました"
+  git_error_user_name: "ユーザー名の取得に失敗しました"
+  git_error_repo_access: "リポジトリ {0} にアクセスできません"
+  git_error_command: "コマンドが失敗しました: {0}"
+  git_error_validation: "Git検証に失敗しました: {0}"
+  git_error_branch: "現在のブランチの取得に失敗しました"
+  git_error_remote_url: "リモートURLの取得に失敗しました"
+  git_error_merge_check: "マージコミットの確認中にエラーが発生しました"
+  git_error_cherry_pick_abort: "チェリーピックの中止中にエラーが発生しました"
+  git_error_branch_name: "コミットからブランチ名を取得中にエラーが発生しました"
+  git_error_status: "Gitステータスの取得中にエラーが発生しました"
+  git_error_commit_exists: "コミットの存在確認中にエラーが発生しました"
+  git_error_conflicted_files: "コンフリクトファイルの取得中にエラーが発生しました"
+  git_error_collaborator: "コラボレーター権限の確認中にエラーが発生しました"
+  git_error_org_membership: "組織メンバーシップの確認中にエラーが発生しました"
+  git_error_pr_create: "プルリクエストの作成中にエラーが発生しました"
+  git_error_pr_edit: "プルリクエストの編集中にエラーが発生しました"
+  git_error_pr_list: "プルリクエストの一覧取得中にエラーが発生しました"
+
   ## webview.ts Validation Messages
   validation_versions_cherry_pick_required: "バージョンとチェリーピックブランチは必須です。"
   validation_repo_name_required: "リポジトリを選択するか、新しいリポジトリ名を入力してください。"
@@ -231,3 +300,4 @@ ja:
   unknown_error_occurred: "不明なエラーが発生しました。"
   remove_version: "バージョンを削除"
   processing_label: "処理中..."
+  invalid_commit_format: "無効なコミットハッシュの形式です。"
