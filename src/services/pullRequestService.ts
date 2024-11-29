@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { GitUtils } from '../utils/git';
-import { RepoService } from '../services/repoService';
 import { PRData } from '../types';
 import { LanguageService } from './languageService';
 
@@ -10,7 +9,6 @@ export class PullRequestService {
 
     constructor(
         private repoName: string,
-        private repoService: RepoService,
         private gitUtils: GitUtils,
         private languageService: LanguageService
     ) {
@@ -24,8 +22,8 @@ export class PullRequestService {
     async init(): Promise<void> {
         try {
             // Let RepoService handle both simple and full repo names
-            const fullRepoName = await this.repoService.getFullRepoName(this.repoName);
-            
+            const fullRepoName = await this.gitUtils.getFullRepoName(this.repoName);
+
             // Validate access after getting full name
             this.validatedRepoName = await this.validateRepositoryAccess(fullRepoName);
         } catch (error: any) {
