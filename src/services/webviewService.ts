@@ -10,11 +10,9 @@ export class WebviewService {
                 private readonly languageService: LanguageService
     ) {}
 
-    async getWebviewContentWithCSP(webview: vscode.Webview): Promise<string> {
+    async getWebviewContentWithCSP(webview: vscode.Webview, language?: string,
+        strings?: Record<string, string>): Promise<string> {
         this.validateResources();
-
-        const currentLanguage = this.languageService.getCurrentLanguage();
-        const strings = this.languageService.getStringsForLanguage(currentLanguage);
 
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.file(
@@ -43,7 +41,8 @@ export class WebviewService {
             scriptUri,
             savedReposOptions,
             styles,
-            currentLanguage
+            language || this.languageService.getCurrentLanguage(),
+            strings || this.languageService.getStringsForLanguage(language || this.languageService.getCurrentLanguage())
         );
     }
 
@@ -120,12 +119,7 @@ export class WebviewService {
     }
 
     private getMainHtmlContent(
-        cspSource: string,
-        scriptUri: vscode.Uri,
-        savedReposOptions: string,
-        styles: string,
-        currentLanguage: string
-    ): string {
+cspSource: string, scriptUri: vscode.Uri, savedReposOptions: string, styles: string, currentLanguage: string, p0: Record<string, string>    ): string {
         const strings = this.languageService.getStringsForLanguage(currentLanguage);
 
         return `
@@ -162,6 +156,16 @@ export class WebviewService {
                             <div class="form-group">
                                 <label for="cherryPickCommit">${strings.cherry_pick_label}</label>
                                 <input type="text" id="cherryPickCommit" name="cherryPickCommit" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="prUrl">${strings.pr_url_field_label}</label>
+                                <input 
+                                    type="text" 
+                                    id="prUrl" 
+                                    name="prUrl" 
+                                    placeholder="${strings.pr_url_field_placeholder}"
+                                    required
+                                >
                             </div>
                             <button type="button" id="submitButton" disabled>${strings.submit_button}</button>
                         </form>
