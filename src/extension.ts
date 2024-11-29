@@ -1,14 +1,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { WorkspaceService } from './services/workspaceService';
 import { GitUtils } from './utils/git';
+import { WorkspaceService } from './services/workspaceService';
 import { StateService } from './services/stateService';
-import { WebviewService } from './services/webviewService';
-import { RepoService } from './services/repoService';
-import { PullRequestService } from './services/pullRequestService';
 import { GitBranchService } from './services/gitBranchService';
-import { UIHelper } from './utils/ui';
 import { LanguageService } from './services/languageService';
+import { WebviewService } from './services/webviewService';
+import { PullRequestService } from './services/pullRequestService';
+import { RepoService } from './services/repoService';
 
 export function activate(context: vscode.ExtensionContext) {
     // Initialize core services
@@ -18,8 +17,35 @@ export function activate(context: vscode.ExtensionContext) {
     const repoService = new RepoService(gitUtils, languageService);
     const stateService = new StateService(context, gitUtils, languageService);
     const gitBranchService = new GitBranchService(gitUtils, stateService, languageService);
-    const uiHelper = new UIHelper();
     const webviewService = new WebviewService(context, languageService);
+
+    // Handle branch creation events
+    stateService.onBranchCreationRequested(async (pendingBranch) => {
+        try {
+            const success = await gitBranchService.createBranchAndCherryPick(
+                pendingBranch.version,
+                pendingBranch.cherryPickCommit,
+                pendingBranch.newBranch
+            );
+
+            if (success) {
+                const pullRequestService = new PullRequestService(
+                    pendingBranch.repoName,
+                    repoService,
+                    gitUtils,
+                    languageService
+                );
+
+                await pullRequestService.createPullRequest(
+                    pendingBranch.prUrl,
+                    pendingBranch.newBranch,
+                    pendingBranch.version
+                );
+            }
+        } catch (error: any) {
+            vscode.window.showErrorMessage(error.message);
+        }
+    });
 
     const disposable = vscode.commands.registerCommand('backporter-x-5000.openWebview', async () => {
         const panel = vscode.window.createWebviewPanel(
@@ -35,14 +61,26 @@ export function activate(context: vscode.ExtensionContext) {
                 retainContextWhenHidden: true,
             }
         );
-    
-        // Set initial webview content with current language
-        panel.webview.html = await webviewService.getWebviewContentWithCSP(panel.webview);
-    
+
         // Send initial language to webview
         const initialLanguage = languageService.getCurrentLanguage();
+        const initialStrings = languageService.getStringsForLanguage(initialLanguage);
         console.log('Sending initial language to webview:', initialLanguage);
-    
+
+        // Set initial webview content
+        panel.webview.html = await webviewService.getWebviewContentWithCSP(panel.webview, initialLanguage, initialStrings);
+
+        
+        
+        // Send initial language state
+        panel.webview.postMessage({
+            type: 'languageUpdate',
+            payload: {
+                language: initialLanguage,
+                strings: languageService.getStringsForLanguage(initialLanguage)
+            }
+        });
+
         // Handle webview messages
         panel.webview.onDidReceiveMessage(
             async message => {
@@ -50,51 +88,77 @@ export function activate(context: vscode.ExtensionContext) {
                     console.log('[Extension] Message received type:', message.type);
                     
                     if (message.type === 'languageChange') {
+                        console.log('[Extension] Language change requested:', message.payload.language);
                         const newLanguage = message.payload.language;
-                        await languageService.changeLanguage(newLanguage);
-                        const updatedStrings = languageService.getStringsForLanguage(newLanguage);
                         
-                        panel.webview.postMessage({
-                            type: 'languageUpdate',
-                            payload: {
-                                language: newLanguage,
-                                strings: updatedStrings
+                        try {
+                            // 1. Change language first
+                            await languageService.changeLanguage(newLanguage);
+                            const updatedStrings = languageService.getStringsForLanguage(newLanguage);
+                            console.log('[Extension] Got updated strings:', Object.keys(updatedStrings).length);
+                    
+                            // 2. Update webview HTML with new language
+                            const updatedHtml = await webviewService.getWebviewContentWithCSP(
+                                panel.webview,
+                                newLanguage,
+                                updatedStrings
+                            );
+                            panel.webview.html = updatedHtml;
+                            
+                            // 3. Wait for HTML update
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                            // 4. Send strings update
+                            await panel.webview.postMessage({
+                                type: 'languageUpdate',
+                                payload: { 
+                                    language: newLanguage, 
+                                    strings: updatedStrings 
+                                }
+                            });
+                    
+                            console.log('[Extension] Language switch completed');
+                        } catch (error: any) {
+                            console.error('[Extension] Language switch failed:', error);
+                            vscode.window.showErrorMessage(`Failed to switch language: ${error.message}`);
+                        }
+                    } else if (message.type === 'submitForm') {
+                        const formData = message.data;
+                        for (const version of formData.versions.split(',')) {
+                            const branchName = await gitUtils.getBranchNameFromCommit(formData.cherryPickCommit);
+                            const newBranch = `backport/${branchName}/${version}`;
+
+                            const success = await gitBranchService.createBranchAndCherryPick(
+                                version,
+                                formData.cherryPickCommit,
+                                newBranch
+                            );
+
+                            if (success) {
+                                const pullRequestService = new PullRequestService(
+                                    formData.repoName || formData.newRepoName,
+                                    repoService,
+                                    gitUtils,
+                                    languageService
+                                );
+                                await pullRequestService.createPullRequest(
+                                    formData.prUrl,
+                                    newBranch,
+                                    version
+                                );
                             }
-                        });
-                        
-                        // Update webview content to reflect new language
-                        panel.webview.html = await webviewService.getWebviewContentWithCSP(panel.webview);
+                        }
                     } else {
                         await stateService.handleMessage(message, panel);
                     }
-                } catch (error) {
+                } catch (error: any) {
                     console.error('[Extension] Error handling message:', error);
+                    vscode.window.showErrorMessage(error.message);
                 }
             },
             undefined,
             context.subscriptions
         );
-    });
-
-    // Handle branch creation events
-    stateService.onBranchCreationRequested(async (pendingBranch) => {
-        const { repoName, versions, commitHash } = pendingBranch;
-
-        for (const version of versions) {
-            const branchName = await gitUtils.getBranchNameFromCommit(commitHash);
-            const newBranch = `backport/${branchName}/${version}`;
-
-            const success = await gitBranchService.createBranchAndCherryPick(
-                version,
-                commitHash,
-                newBranch
-            );
-
-            if (success) {
-                const pullRequestService = new PullRequestService(repoName, repoService, gitUtils, languageService);
-                await pullRequestService.getPRUrlWithRetry(repoName, newBranch, version);
-            }
-        }
     });
 
     context.subscriptions.push(disposable);
