@@ -216,39 +216,59 @@ export class StateService {
     
 
     private async handleFormSubmit(message: WebviewMessage): Promise<void> {
+        const strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
+    
         if (!await this.gitUtils.validateGitRepo()) {
-            throw new Error('Not a valid git repository');
+            throw new Error(strings.error_not_git_repo);
         }
-
-        const { repoName, newRepoName, versions, cherryPickCommit } = message.payload;
+    
+        const { repoName, newRepoName, versions, cherryPickCommit, prUrl } = message.payload;
         const finalRepoName = newRepoName.trim() || repoName;
-
+    
+        // Validate required fields
         if (!finalRepoName) {
-            throw new Error('Repository name is required');
+            throw new Error(strings.error_repo_required);
         }
-
+    
+        if (!await this.gitUtils.validatePrUrl(prUrl)) {
+            throw new Error(strings.error_invalid_pr_url);
+        }
+    
+        // Save new repo if provided
         if (newRepoName.trim()) {
             await this.saveRepo(newRepoName.trim());
         }
-
+    
         const inputVersions = versions.split(',')
             .map((v: string) => v.trim())
             .filter(Boolean);
-
+    
         if (inputVersions.length === 0) {
-            throw new Error('At least one version is required');
+            throw new Error(strings.error_version_required);
         }
-
+    
         await this.saveVersions(finalRepoName, inputVersions);
-
-        const pendingBranch: PendingBranch = {
-            repoName: finalRepoName,
-            versions: inputVersions,
-            commitHash: cherryPickCommit
-        };
-
-        this.branchCreationEmitter.fire(pendingBranch);
-        await this.context.workspaceState.update('pendingBranches', pendingBranch);
+    
+        // Create a pending branch for each version
+        for (const version of inputVersions) {
+            const branchName = await this.gitUtils.getBranchNameFromCommit(cherryPickCommit);
+            const newBranch = `backport/${branchName}/${version}`;
+    
+            const pendingBranch: PendingBranch = {
+                repoName: finalRepoName,
+                version,
+                versions: inputVersions,
+                cherryPickCommit,
+                commitHash: cherryPickCommit,
+                newBranch,
+                prUrl
+            };
+    
+            this.branchCreationEmitter.fire(pendingBranch);
+            await this.context.workspaceState.update('pendingBranches', pendingBranch);
+        }
     }
 
     private updateOperationState(update: Partial<StateData['pendingOperations']>): void {
