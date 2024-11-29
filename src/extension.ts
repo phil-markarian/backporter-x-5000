@@ -7,14 +7,12 @@ import { GitBranchService } from './services/gitBranchService';
 import { LanguageService } from './services/languageService';
 import { WebviewService } from './services/webviewService';
 import { PullRequestService } from './services/pullRequestService';
-import { RepoService } from './services/repoService';
 
 export function activate(context: vscode.ExtensionContext) {
     // Initialize core services
     const languageService = new LanguageService(context);
     const workspaceService = WorkspaceService.getInstance();
-    const gitUtils = new GitUtils(workspaceService);
-    const repoService = new RepoService(gitUtils, languageService);
+    const gitUtils = new GitUtils(workspaceService, languageService);
     const stateService = new StateService(context, gitUtils, languageService);
     const gitBranchService = new GitBranchService(gitUtils, stateService, languageService);
     const webviewService = new WebviewService(context, languageService);
@@ -31,7 +29,6 @@ export function activate(context: vscode.ExtensionContext) {
             if (success) {
                 const pullRequestService = new PullRequestService(
                     pendingBranch.repoName,
-                    repoService,
                     gitUtils,
                     languageService
                 );
@@ -137,7 +134,6 @@ export function activate(context: vscode.ExtensionContext) {
                             if (success) {
                                 const pullRequestService = new PullRequestService(
                                     formData.repoName || formData.newRepoName,
-                                    repoService,
                                     gitUtils,
                                     languageService
                                 );
