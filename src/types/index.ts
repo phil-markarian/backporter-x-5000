@@ -83,4 +83,19 @@ export interface BackportFormData {
     repoName: string;
     versions: string;
     cherryPickCommit: string;
+    prUrl: string;
+}
+
+export interface PendingBranch {
+    repoName: string;
+    version: string;
+    cherryPickCommit: string;
+    newBranch: string;
+    prUrl: string;
+}
+
+export interface WebviewState {
+    initialized: boolean;
+    currentLanguage: string;
+    strings: Record<string, string>;
 }
