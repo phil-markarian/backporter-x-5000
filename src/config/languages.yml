@@ -12,6 +12,8 @@ en:
   saved_versions_label: "Saved versions:"
   versions_label: "Versions"
   submit_button: "Start Backport"
+  pr_url_field_label: "Original PR URL"
+  pr_url_field_placeholder: "Paste GitHub PR URL here"
 
   ## StateService Status Messages
   loading_text: "Processing..."
@@ -127,6 +129,8 @@ ja:
   saved_versions_label: "保存されたバージョン:"
   versions_label: "バージョン"
   submit_button: "バックポート開始"
+  pr_url_field_label: "元のPR URL"
+  pr_url_field_placeholder: "GitHub PR URLを貼り付けてください"
 
   ## StateService Status Messages
   loading_text: "処理中..."
@@ -144,9 +148,9 @@ ja:
   branch_cancel: "キャンセル"
   branch_cancel_desc: "ブランチの作成を中止"
   error_branch_delete_current: "現在チェックアウトされているブランチを削除できません。別のブランチをチェックアウトしてからバックポートを行なってください。"
-  remote_branch_delete_confirm: "You are currently trying to create a remote branch that already exists? Would you like to delete the remote branch {0}?"
-  error_remote_branch_delete: "Failed to delete remote branch {0}. The branch may not exist remotely or you may not have permission."
-  error_remote_branch_delete_unknown: "An unexpected error occurred while deleting remote branch {0}."
+  remote_branch_delete_confirm: "作成しようとしているリモートブランチ {0} は既に存在します。このリモートブランチを削除しますか？"
+  error_remote_branch_delete: "リモートブランチ {0} の削除に失敗しました。ブランチがリモートに存在しないか、権限がない可能性があります。"
+  error_remote_branch_delete_unknown: "リモートブランチ {0} の削除中に予期せぬエラーが発生しました。"
 
   ## Conflict Resolution - GitBranchService
   conflict_resolve_title: "コンフリクトの解決"
@@ -220,10 +224,10 @@ ja:
   error_git_repo: "有効なGitリポジトリではありません"
   error_state_generic: "エラー: {0}"
 
-  ## TODO: translate webview.ts Validation Messages
-  validation_versions_cherry_pick_required: "Versions and Cherry-pick branch are required."
-  validation_repo_name_required: "Please select a repository or enter a new repository name."
-  validation_repo_name_conflict: "Please provide either a new repository name or select an existing one, not both."
-  unknown_error_occurred: "An unknown error occurred."
-  remove_version: "Remove version"
-  processing_label: "Processing..."
+  ## webview.ts Validation Messages
+  validation_versions_cherry_pick_required: "バージョンとチェリーピックブランチは必須です。"
+  validation_repo_name_required: "リポジトリを選択するか、新しいリポジトリ名を入力してください。"
+  validation_repo_name_conflict: "新しいリポジトリ名を入力するか、既存のリポジトリを選択するかのどちらか一方を選んでください。"
+  unknown_error_occurred: "不明なエラーが発生しました。"
+  remove_version: "バージョンを削除"
+  processing_label: "処理中..."
