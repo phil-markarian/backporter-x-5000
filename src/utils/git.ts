@@ -1,9 +1,17 @@
 import { exec } from 'child_process';
 import * as vscode from 'vscode';
 import { WorkspaceService } from '../services/workspaceService';
-
+import { LanguageService } from '../services/languageService';
 export class GitUtils {
-    constructor(private readonly workspaceService: WorkspaceService) {}
+    private readonly strings: Record<string, string>;
+
+    constructor(private readonly workspaceService: WorkspaceService,
+                private readonly languageService: LanguageService
+    ) {
+        this.strings = this.languageService.getStringsForLanguage(
+            this.languageService.getCurrentLanguage()
+        );
+    }
 
     async execCommand(command: string): Promise<string> {
         return new Promise((resolve, reject) => {
@@ -74,9 +82,9 @@ export class GitUtils {
             console.log('Git status:', gitStatus);
             
             return true;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Git validation error:', error);
-            vscode.window.showErrorMessage(`Git validation failed: ${error}`);
+            vscode.window.showErrorMessage(this.strings.git_error_validation.replace('{0}', error));
             return false;
         }
     }
@@ -154,7 +162,7 @@ export class GitUtils {
             return cleanBranchName;
         } catch (error) {
             console.error('Error getting current branch:', error);
-            throw new Error('Failed to get current branch');
+            throw new Error(this.strings.git_error_branch);
         }
     }
 
@@ -242,7 +250,7 @@ export class GitUtils {
             return await this.execCommand('git remote get-url origin');
         } catch (error) {
             console.error('Error getting remote URL:', error);
-            throw new Error('Failed to get remote URL');
+            throw new Error(this.strings.git_error_remote_url);
         }
     }
     
@@ -367,5 +375,52 @@ export class GitUtils {
             console.error('Error validating PR URL:', error);
             return false;
         }
+    }
+
+    async getFullRepoName(repoName: string): Promise<string> {
+    
+        if (repoName.includes('/')) {
+            return repoName;
+        }
+    
+        try {
+            const orgs = await this.getOrgs().catch(() => {
+                throw new Error(this.strings.git_error_user_orgs);
+            });
+            
+            for (const org of orgs) {
+                try {
+                    await this.viewRepo(`${org}/${repoName}`);
+                    return `${org}/${repoName}`;
+                } catch {
+                    continue;
+                }
+            }
+            
+            const userName = await this.getCurrentUser().catch(() => {
+                throw new Error(this.strings.git_error_user_name);
+            });
+            const fullRepoName = `${userName}/${repoName}`;
+            
+            try {
+                await this.viewRepo(fullRepoName);
+                return fullRepoName;
+            } catch {
+                throw new Error(this.strings.git_error_repo_access.replace('{0}', fullRepoName));
+            }
+    
+        } catch (error: any) {
+            if (error.message.includes(this.strings.git_error_user_orgs) || 
+                error.message.includes(this.strings.git_error_user_name)) {
+                throw error;
+            }
+            throw new Error(this.strings.git_error_repo_name.replace('{0}', repoName));
+        }
+    }
+
+    private async getOrgs(): Promise<string[]> {
+        const command = `gh api /user/memberships/orgs --jq '.[].organization.login'`;
+        const output = await this.execCommand(command);
+        return output.split('\n').filter(org => org.trim());
     }
 }
