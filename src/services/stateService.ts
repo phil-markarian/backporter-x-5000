@@ -221,7 +221,7 @@ export class StateService {
         );
     
         if (!await this.gitUtils.validateGitRepo()) {
-            throw new Error(strings.error_not_git_repo);
+            throw new Error(strings.error_git_repo);
         }
     
         const { repoName, newRepoName, versions, cherryPickCommit, prUrl } = message.payload;
