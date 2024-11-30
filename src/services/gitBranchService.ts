@@ -25,9 +25,6 @@ export class GitBranchService {
         cherryPickCommit: string,
         newBranch: string
     ): Promise<boolean> {
-        const strings = this.languageService.getStringsForLanguage(
-            this.languageService.getCurrentLanguage()
-        );
         const originalBranch = await this.gitUtils.getCurrentBranch();
 
         try {
@@ -78,7 +75,11 @@ export class GitBranchService {
                 if (hasConflicts) {
                     const resolved = await this.handleCherryPickConflict(newBranch);
                     if (!resolved) {
-                        await this.cleanupAndRestore(newBranch, originalBranch).catch(() => {});
+                        await this.gitUtils.performCleanup({
+                            branch: newBranch,
+                            originalBranch,
+                            force: true
+                        });
                         return false;
                     }
                     return true;
@@ -96,37 +97,14 @@ export class GitBranchService {
 
             if (!expectedErrors.some((msg) => error.message.includes(msg))) {
                 await this.handleBranchCreationError(error, newBranch, originalBranch);
+            } else {
+                await this.gitUtils.performCleanup({
+                    branch: newBranch,
+                    originalBranch,
+                    force: true
+                });
             }
-
-            await this.cleanupAndRestore(newBranch, originalBranch).catch(() => {});
             return false;
-        }
-    }
-
-    private async cleanupAndRestore(branchName: string, originalBranch: string): Promise<void> {
-        try {
-            // Check if we're in a cherry-pick state
-            const status = await this.gitUtils.getStatus();
-            if (status.includes('cherry-pick')) {
-                await this.gitUtils.abortCherryPick();
-            }
-
-            // Reset any pending changes
-            await this.gitUtils.resetHard();
-
-            // Now safe to checkout original branch
-            await this.gitUtils.checkout(originalBranch);
-
-            // Try to delete the branch if it exists and isn't checked out
-            const currentBranch = await this.gitUtils.getCurrentBranch();
-            if (branchName !== currentBranch) {
-                const exists = await this.gitUtils.branchExists(branchName);
-                if (exists) {
-                    await this.gitUtils.deleteBranch(branchName, true); 
-                }
-            }
-        } catch (error) {
-            console.log(this.strings.error_unknown, error);
         }
     }
 
@@ -153,12 +131,17 @@ export class GitBranchService {
         }
 
         // Always try to cleanup
-        await this.cleanupAndRestore(newBranch, originalBranch);
+        await this.gitUtils.performCleanup({
+            branch: newBranch,
+            originalBranch,
+            force: true
+        });
         vscode.window.showErrorMessage(
             this.strings.error_branch_creation_failed.replace('{0}', errorMessage)
         );
     }
 
+    // TODO: figure out if I should remove this or not
     private async handleExistingBranch(branchName: string): Promise<string | null> {
 
 
@@ -195,7 +178,7 @@ export class GitBranchService {
                         if (currentBranch === branchName) {
                             await this.gitUtils.checkout('main');
                         }
-                        await this.gitUtils.deleteBranch(branchName, true); 
+                        await this.gitUtils.deleteBranchSafely(branchName, true); 
                     }
 
                     // Delete remote branch if it exists
@@ -205,6 +188,11 @@ export class GitBranchService {
                     }
                     return branchName;
                 } catch (error: any) {
+                    await this.gitUtils.performCleanup({
+                        branch: branchName,
+                        originalBranch: await this.gitUtils.getCurrentBranch(),
+                        force: true
+                    });
                     const newName = `${branchName}-${Date.now()}`;
                     vscode.window.showWarningMessage(
                         this.strings.error_branch_delete_current.replace('{0}', newName)
@@ -236,6 +224,11 @@ export class GitBranchService {
             return resolved;
         } catch (error) {
             console.error(this.strings.error_unknown, error);
+            await this.gitUtils.performCleanup({
+                branch: branchName,
+                originalBranch: await this.gitUtils.getCurrentBranch(),
+                force: true
+            });
             await this.stateService.updateCherryPickState({
                 inProgress: false,
                 hasConflicts: false,
@@ -378,4 +371,5 @@ export class GitBranchService {
             });
         }
     }
+
 }
