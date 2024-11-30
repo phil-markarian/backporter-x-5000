@@ -44,6 +44,7 @@
     "eslint": "^9.9.1",
     "ts-loader": "^9.5.1",
     "typescript": "^5.5.4",
+    "undici-types": "^7.0.0",
     "webpack": "^5.94.0",
     "webpack-cli": "^5.1.4"
   },
