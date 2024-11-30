@@ -603,4 +603,22 @@ export class GitUtils {
       return [];
     }
   }
+
+  async getDefaultBranch(repoName: string): Promise<string> {
+    try {
+      const defaultBranch = await this.execCommand(
+        `gh api repos/${repoName} --jq .default_branch`,
+      );
+      return defaultBranch.trim();
+    } catch (error: any) {
+      console.error("Error getting default branch:", error);
+      // Fallback to 'main' or 'master'
+      try {
+        const hasMaster = await this.branchExists("master", true);
+        return hasMaster ? "master" : "main";
+      } catch {
+        return "main"; // Final fallback
+      }
+    }
+  }
 }
