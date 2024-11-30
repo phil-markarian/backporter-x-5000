@@ -113,6 +113,9 @@ en:
   selection_cancelled: "Selection of {0} was cancelled. Would you like to retry?"
   skip_selection: "Skip selection"
   retry_selection: "Try selection again"
+  ## Backport Summary
+  summary_header: "## BROUGHT TO YOU BY → BACKPORTER X-5000"
+  summary_original_pr: "Original PR:"
 
   ## StateService Messages
   error_panel_required: "Panel is required for language change"
@@ -269,6 +272,9 @@ ja:
   selection_cancelled: "{0}の選択がキャンセルされました。再試行しますか？"
   skip_selection: "選択をスキップする"
   retry_selection: "選択をやり直す"
+  ## Backport Summary
+  summary_header: "## ご覧のスポンサーの提供 → バックポーターX-5000"
+  summary_original_pr: "元のPR:"
 
   ## StateService Messages
   error_panel_required: "言語変更にはパネルが必要です"

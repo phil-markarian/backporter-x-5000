@@ -97,3 +97,9 @@ export interface GitHubUser {
   label: string;
   type: "user" | "team";
 }
+
+export interface BackportedPR {
+  version: string;
+  url: string;
+  number: string;
+}

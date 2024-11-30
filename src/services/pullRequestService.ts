@@ -1,11 +1,13 @@
 import * as vscode from "vscode";
 import { GitUtils } from "../utils/git";
-import { PRData } from "../types";
+import { PRData, BackportedPR } from "../types";
 import { LanguageService } from "./languageService";
 
 export class PullRequestService {
   private validatedRepoName: string;
   private strings: any;
+  private originalPrUrl: string = "";
+  private backportedPRs: BackportedPR[] = [];
 
   constructor(
     private repoName: string,
@@ -112,6 +114,7 @@ export class PullRequestService {
       await this.init();
     }
 
+    this.originalPrUrl = prUrl;
     const originalBranch = await this.gitUtils.getCurrentBranch();
 
     return vscode.window.withProgress(
@@ -222,7 +225,6 @@ export class PullRequestService {
     body: string,
     version: string,
   ): Promise<void> {
-    const originalBranch = await this.gitUtils.getCurrentBranch();
     const defaultBranch = await this.gitUtils.getDefaultBranch(
       this.validatedRepoName,
     );
@@ -240,7 +242,14 @@ export class PullRequestService {
         body: body,
       });
 
+      // Extract PR number and store PR info
       const newPrNumber = newPrUrl.trim().split("/").pop() || "";
+      this.backportedPRs.push({
+        version,
+        url: newPrUrl.trim(),
+        number: newPrNumber,
+      });
+
       if (newPrNumber) {
         // Handle assignee
         const assignee = await this.handlePRAssignment();
@@ -263,17 +272,61 @@ export class PullRequestService {
         }
       }
       prCreatedSuccessfully = true;
+
+      // Update all PRs with complete summary
+      await this.updateAllPRsWithSummary();
     } catch (error: any) {
       await this.gitUtils.performCleanup({
         branch,
-        originalBranch,
+        originalBranch: defaultBranch,
         force: true,
       });
       throw new Error(`${this.strings.pr_creation_failed}: ${error.message}`);
     } finally {
       if (prCreatedSuccessfully) {
-        // Checkout original branch after successful PR creation
         await this.gitUtils.checkout(defaultBranch);
+      }
+    }
+  }
+
+  private async updateAllPRsWithSummary(): Promise<void> {
+    const summaryHeader = "## BROUGHT TO YOU BY: BACKPORTER X-5000";
+    const summaryLines = [
+      "\n\n---",
+      summaryHeader,
+      `[main](${this.originalPrUrl})`,
+      ...this.backportedPRs.map((pr) => `[${pr.version}](${pr.url})`),
+    ];
+
+    const summaryContent = summaryLines.join("\n");
+
+    // Update each PR with the complete summary
+    for (const pr of this.backportedPRs) {
+      if (pr.number) {
+        const prData = await this.gitUtils.getPrData(
+          pr.number,
+          this.validatedRepoName,
+        );
+        const prInfo = JSON.parse(prData);
+
+        // Check if summary already exists
+        const existingSummaryIndex = prInfo.body.indexOf(summaryHeader);
+        let newBody: string;
+
+        if (existingSummaryIndex !== -1) {
+          // Replace existing summary
+          newBody =
+            prInfo.body.substring(0, existingSummaryIndex - 5) + summaryContent;
+        } else {
+          // Append new summary
+          newBody = `${prInfo.body}${summaryContent}`;
+        }
+
+        await this.gitUtils.editPr({
+          number: pr.number,
+          repo: this.validatedRepoName,
+          body: newBody,
+        });
       }
     }
   }

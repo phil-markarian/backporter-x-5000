@@ -360,10 +360,22 @@ export class GitUtils {
     assignee?: string;
     reviewer?: string;
     state?: string;
+    body?: string;
   }): Promise<void> {
     if (options.state) {
       await this.execCommand(
         `gh pr edit ${options.number} --repo ${options.repo} --state ${options.state}`,
+      );
+    }
+
+    if (options.body) {
+      // Escape newlines and quotes for shell
+      const escapedBody = options.body
+        .replace(/"/g, '\\"')
+        .replace(/`/g, "\\`");
+
+      await this.execCommand(
+        `gh pr edit ${options.number} --repo ${options.repo} --body "${escapedBody}"`,
       );
     }
 
