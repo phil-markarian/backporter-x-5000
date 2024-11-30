@@ -223,6 +223,10 @@ export class PullRequestService {
     version: string,
   ): Promise<void> {
     const originalBranch = await this.gitUtils.getCurrentBranch();
+    const defaultBranch = await this.gitUtils.getDefaultBranch(
+      this.validatedRepoName,
+    );
+    let prCreatedSuccessfully = false;
 
     try {
       await this.gitUtils.push(branch);
@@ -258,6 +262,7 @@ export class PullRequestService {
           });
         }
       }
+      prCreatedSuccessfully = true;
     } catch (error: any) {
       await this.gitUtils.performCleanup({
         branch,
@@ -265,6 +270,11 @@ export class PullRequestService {
         force: true,
       });
       throw new Error(`${this.strings.pr_creation_failed}: ${error.message}`);
+    } finally {
+      if (prCreatedSuccessfully) {
+        // Checkout original branch after successful PR creation
+        await this.gitUtils.checkout(defaultBranch);
+      }
     }
   }
 
