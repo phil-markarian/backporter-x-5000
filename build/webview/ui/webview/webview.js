@@ -17,6 +17,15 @@
             case 'savedVersions':
                 displaySavedVersions(message.versions);
                 break;
+            case 'prUrlValidation':
+                if (!message.payload.isValid && formElements.prUrlError) {
+                    formElements.prUrlError.style.display = 'block';
+                    formElements.prUrlError.textContent = state.strings.error_invalid_pr_url;
+                }
+                else if (formElements.prUrlError) {
+                    formElements.prUrlError.style.display = 'none';
+                }
+                break;
             case 'error':
                 showError(message.payload);
                 break;
@@ -298,6 +307,16 @@
         });
         formElements.versionsInput?.addEventListener('input', validateFormState);
         formElements.cherryPickInput?.addEventListener('input', validateFormState);
+        formElements.prUrlInput?.addEventListener('input', () => {
+            validateFormState();
+            if (formElements.prUrlInput?.value) {
+                // Send message to validate PR URL
+                vscode.postMessage({
+                    type: 'validatePrUrl',
+                    payload: formElements.prUrlInput.value
+                });
+            }
+        });
         // Form submission handler
         formElements.submitButton?.addEventListener('click', () => {
             if (!formElements.form) {
