@@ -52,7 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
             {
                 enableScripts: true,
                 localResourceRoots: [
-                    vscode.Uri.file(path.join(context.extensionPath, 'build')),
+                    vscode.Uri.file(path.join(context.extensionPath, 'build', 'webview', 'ui', 'webview')),
                     vscode.Uri.file(path.join(context.extensionPath, 'media')),
                 ],
                 retainContextWhenHidden: true,
