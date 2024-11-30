@@ -1,5 +1,5 @@
 export function getMainStyles(imageUri: string) {
-    return `
+  return `
         body {
             margin: 0;
             padding: 0;
@@ -172,7 +172,7 @@ export function getMainStyles(imageUri: string) {
 }
 
 export function getPrSelectionStyles() {
-    return `
+  return `
         body {
             padding: 1.25rem;
             color: white;

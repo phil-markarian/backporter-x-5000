@@ -11,7 +11,7 @@ export interface WebviewMessage {
     key?: string;
     value?: string;
 }
-export type MessageType = 'error' | 'test' | 'loadSavedVersions' | 'deleteVersion' | 'formSubmit' | 'getLanguageString' | 'languageChange' | 'languageString' | 'languageChangeComplete' | 'savedVersions' | 'success' | 'loading' | 'validationError' | 'webviewReady';
+export type MessageType = "error" | "test" | "loadSavedVersions" | "deleteVersion" | "formSubmit" | "getLanguageString" | "languageChange" | "languageString" | "languageChangeComplete" | "savedVersions" | "success" | "loading" | "validationError" | "webviewReady";
 export interface StateData {
     savedVersions: {
         [key: string]: string[];
@@ -26,7 +26,7 @@ export interface StateData {
             hasConflicts: boolean;
         };
         branchCreation?: {
-            status: 'pending' | 'success' | 'failed';
+            status: "pending" | "success" | "failed";
             error?: string;
         };
     };
@@ -71,5 +71,5 @@ export interface CleanupState {
 }
 export interface GitHubUser {
     label: string;
-    type: 'user' | 'team';
+    type: "user" | "team";
 }

@@ -1,52 +1,61 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
-import { getMainStyles, getPrSelectionStyles } from '../ui/styles';
-import { PRInfo } from '../types';
-import { LanguageService } from './languageService';
+import * as vscode from "vscode";
+import * as path from "path";
+import * as fs from "fs";
+import { getMainStyles, getPrSelectionStyles } from "../ui/styles";
+import { PRInfo } from "../types";
+import { LanguageService } from "./languageService";
 
 export class WebviewService {
-    constructor(private readonly context: vscode.ExtensionContext,
-                private readonly languageService: LanguageService
-    ) {}
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly languageService: LanguageService,
+  ) {}
 
-    async getWebviewContentWithCSP(webview: vscode.Webview, language?: string,
-        strings?: Record<string, string>): Promise<string> {
-        this.validateResources();
+  async getWebviewContentWithCSP(
+    webview: vscode.Webview,
+    language?: string,
+    strings?: Record<string, string>,
+  ): Promise<string> {
+    this.validateResources();
 
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.file(
-                path.join(
-                    this.context.extensionPath,
-                    'build',
-                    'webview',
-                    'ui',
-                    'webview',
-                    'webview.js'
-                )
-            )
-        );
-        const imageUri = webview.asWebviewUri(vscode.Uri.file(
-            path.join(this.context.extensionPath, 'media', 'side-image.jpg')
-        ));
-        
-        const savedRepos = this.context.globalState.get<string[]>('savedRepos', []);
-        const savedReposOptions = savedRepos
-            .map(repo => `<option value="${repo}">${repo}</option>`)
-            .join('');
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.file(
+        path.join(
+          this.context.extensionPath,
+          "build",
+          "webview",
+          "ui",
+          "webview",
+          "webview.js",
+        ),
+      ),
+    );
+    const imageUri = webview.asWebviewUri(
+      vscode.Uri.file(
+        path.join(this.context.extensionPath, "media", "side-image.jpg"),
+      ),
+    );
 
-        const styles = getMainStyles(imageUri.toString());
-        return this.getMainHtmlContent(
-            webview.cspSource,
-            scriptUri,
-            savedReposOptions,
-            styles,
-            language || this.languageService.getCurrentLanguage(),
-            strings || this.languageService.getStringsForLanguage(language || this.languageService.getCurrentLanguage())
-        );
-    }
+    const savedRepos = this.context.globalState.get<string[]>("savedRepos", []);
+    const savedReposOptions = savedRepos
+      .map((repo) => `<option value="${repo}">${repo}</option>`)
+      .join("");
 
-    /* async getPrSelectionHtml(webview: vscode.Webview, prInfo: PRInfo): Promise<string> {
+    const styles = getMainStyles(imageUri.toString());
+    return this.getMainHtmlContent(
+      webview.cspSource,
+      scriptUri,
+      savedReposOptions,
+      styles,
+      language || this.languageService.getCurrentLanguage(),
+      strings ||
+        this.languageService.getStringsForLanguage(
+          language || this.languageService.getCurrentLanguage(),
+        ),
+    );
+  }
+
+  /* async getPrSelectionHtml(webview: vscode.Webview, prInfo: PRInfo): Promise<string> {
         const scriptUri = webview.asWebviewUri(vscode.Uri.file(
             path.join(this.context.extensionPath, 'build', 'prSelectionScript.js')
         ));
@@ -55,27 +64,31 @@ export class WebviewService {
         return this.getPrSelectionHtmlContent(webview.cspSource, scriptUri, prInfo, styles);
     } */
 
-    private validateResources(): void {
-        const scriptPath = path.join(
-            this.context.extensionPath,
-            'build',
-            'webview',
-            'ui',
-            'webview',
-            'webview.js'
-        );
-        const imagePath = path.join(this.context.extensionPath, 'media', 'side-image.jpg');
-        
-        if (!fs.existsSync(scriptPath)) {
-            throw new Error('webview.js not found');
-        }
-        if (!fs.existsSync(imagePath)) {
-            throw new Error('Side image not found');
-        }
-    }
+  private validateResources(): void {
+    const scriptPath = path.join(
+      this.context.extensionPath,
+      "build",
+      "webview",
+      "ui",
+      "webview",
+      "webview.js",
+    );
+    const imagePath = path.join(
+      this.context.extensionPath,
+      "media",
+      "side-image.jpg",
+    );
 
-    private getCspTag(cspSource: string): string {
-        return `
+    if (!fs.existsSync(scriptPath)) {
+      throw new Error("webview.js not found");
+    }
+    if (!fs.existsSync(imagePath)) {
+      throw new Error("Side image not found");
+    }
+  }
+
+  private getCspTag(cspSource: string): string {
+    return `
             <meta http-equiv="Content-Security-Policy"
                 content="default-src 'none';
                          img-src ${cspSource} blob: data:;
@@ -83,55 +96,69 @@ export class WebviewService {
                          style-src ${cspSource} 'unsafe-inline';
                          connect-src ${cspSource};">
         `;
-    }
+  }
 
-    private languageSelector(currentLanguage: string): string {
-        const availableLanguages = this.languageService.getAvailableLanguages();
-        const defaultLanguage = availableLanguages[0]; // First language in yaml becomes default
-        
-        const languages = availableLanguages.map(code => ({
-            code,
-            name: this.languageService.getString(`language_${code}`, defaultLanguage)
-        }));
-    
-        return `
+  private languageSelector(currentLanguage: string): string {
+    const availableLanguages = this.languageService.getAvailableLanguages();
+    const defaultLanguage = availableLanguages[0]; // First language in yaml becomes default
+
+    const languages = availableLanguages.map((code) => ({
+      code,
+      name: this.languageService.getString(`language_${code}`, defaultLanguage),
+    }));
+
+    return `
             <div class="language-selector">
                 <select id="languageSelector" class="language-select">
-                    ${languages.map(lang => `
-                        <option value="${lang.code}" ${currentLanguage === lang.code ? 'selected' : ''}>
+                    ${languages
+                      .map(
+                        (lang) => `
+                        <option value="${lang.code}" ${currentLanguage === lang.code ? "selected" : ""}>
                             ${lang.name}
                         </option>
-                    `).join('')}
+                    `,
+                      )
+                      .join("")}
                 </select>
             </div>
         `;
-    }
+  }
 
-    private getSavedVersionsContainer(): string {
-        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
-        return `
+  private getSavedVersionsContainer(): string {
+    const strings = this.languageService.getStringsForLanguage(
+      this.languageService.getCurrentLanguage(),
+    );
+    return `
             <div class="form-group">
                 <label for="savedVersions">${strings.saved_versions_label}</label>
                 <div id="savedVersions" class="saved-versions-container"></div>
             </div>
         `;
-    }
+  }
 
-    private getRepositorySelect(savedReposOptions: string): string {
-        const strings = this.languageService.getStringsForLanguage(this.languageService.getCurrentLanguage());
-        return `
+  private getRepositorySelect(savedReposOptions: string): string {
+    const strings = this.languageService.getStringsForLanguage(
+      this.languageService.getCurrentLanguage(),
+    );
+    return `
             <select id="repoName" name="repoName">
                 <option value="">${strings.select_repository}</option>
                 ${savedReposOptions}
             </select>
         `;
-    }
+  }
 
-    private getMainHtmlContent(
-cspSource: string, scriptUri: vscode.Uri, savedReposOptions: string, styles: string, currentLanguage: string, p0: Record<string, string>    ): string {
-        const strings = this.languageService.getStringsForLanguage(currentLanguage);
+  private getMainHtmlContent(
+    cspSource: string,
+    scriptUri: vscode.Uri,
+    savedReposOptions: string,
+    styles: string,
+    currentLanguage: string,
+    p0: Record<string, string>,
+  ): string {
+    const strings = this.languageService.getStringsForLanguage(currentLanguage);
 
-        return `
+    return `
             <!DOCTYPE html>
             <html lang="${currentLanguage}">
             <head>
@@ -188,15 +215,15 @@ cspSource: string, scriptUri: vscode.Uri, savedReposOptions: string, styles: str
             </body>
             </html>
         `;
-    }
+  }
 
-    private getPrSelectionHtmlContent(
-        cspSource: string,
-        scriptUri: vscode.Uri,
-        prInfo: PRInfo,
-        styles: string
-    ): string {
-        return `
+  private getPrSelectionHtmlContent(
+    cspSource: string,
+    scriptUri: vscode.Uri,
+    prInfo: PRInfo,
+    styles: string,
+  ): string {
+    return `
             <!DOCTYPE html>
             <html>
             <head>
@@ -228,5 +255,5 @@ cspSource: string, scriptUri: vscode.Uri, savedReposOptions: string, styles: str
             </body>
             </html>
         `;
-    }
+  }
 }

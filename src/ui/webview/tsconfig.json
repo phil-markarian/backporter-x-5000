@@ -1,20 +1,17 @@
 {
-    "compilerOptions": {
-        "composite": true,
-        "module": "none",
-        "target": "ES2022",
-        "outDir": "../../../build/webview",
-        "rootDir": "../../",
-        "strict": true,
-        "moduleResolution": "node",      // Add this
-        "baseUrl": "../../",
-        "paths": {
-            "../../types": ["types/index.ts"], // Update path alias
-            "../../types/*": ["types/*"]
-        }
-    },
-    "include": [
-        "webview.ts",
-        "../../types/**/*.ts"
-    ]
+  "compilerOptions": {
+    "composite": true,
+    "module": "none",
+    "target": "ES2022",
+    "outDir": "../../../build/webview",
+    "rootDir": "../../",
+    "strict": true,
+    "moduleResolution": "node", // Add this
+    "baseUrl": "../../",
+    "paths": {
+      "../../types": ["types/index.ts"], // Update path alias
+      "../../types/*": ["types/*"]
+    }
+  },
+  "include": ["webview.ts", "../../types/**/*.ts"]
 }
