@@ -49,6 +49,7 @@ en:
   remote_branch_delete_confirm: "You are currently trying to create a remote branch that already exists? Would you like to delete the remote branch {0}?"
   error_remote_branch_delete: "Failed to delete remote branch {0}. The branch may not exist remotely or you may not have permission."
   error_remote_branch_delete_unknown: "An unexpected error occurred while deleting remote branch {0}."
+  cleanup_failed: "Cleanup failed."
 
   ## Conflict Resolution - GitBranchService
   conflict_resolve_title: "Resolve Conflicts"
@@ -109,6 +110,9 @@ en:
   pr_invalid_repo_permissions: "Insufficient permissions for repository {0}"
   pr_validation_failed: "Repository validation failed: {0}"
   pr_fetch_github_users_failed: "Failed to fetch GitHub users"
+  selection_cancelled: "Selection of {0} was cancelled. Would you like to retry?"
+  skip_selection: "Skip selection"
+  retry_selection: "Try selection again"
 
   ## StateService Messages
   error_panel_required: "Panel is required for language change"
@@ -201,6 +205,7 @@ ja:
   remote_branch_delete_confirm: "作成しようとしているリモートブランチ {0} は既に存在します。このリモートブランチを削除しますか？"
   error_remote_branch_delete: "リモートブランチ {0} の削除に失敗しました。ブランチがリモートに存在しないか、権限がない可能性があります。"
   error_remote_branch_delete_unknown: "リモートブランチ {0} の削除中に予期せぬエラーが発生しました。"
+  cleanup_failed: "失敗処理が失敗しました"
 
   ## Conflict Resolution - GitBranchService
   conflict_resolve_title: "コンフリクトの解決"
@@ -261,6 +266,9 @@ ja:
   pr_invalid_repo_permissions: "リポジトリ {0} に対する権限が不足しています"
   pr_validation_failed: "リポジトリの検証に失敗しました: {0}"
   pr_fetch_github_users_failed: "GitHubユーザーの取得に失敗しました"
+  selection_cancelled: "{0}の選択がキャンセルされました。再試行しますか？"
+  skip_selection: "選択をスキップする"
+  retry_selection: "選択をやり直す"
 
   ## StateService Messages
   error_panel_required: "言語変更にはパネルが必要です"
