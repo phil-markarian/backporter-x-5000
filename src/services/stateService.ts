@@ -122,10 +122,6 @@ export class StateService {
         }
     }
 
-    private async handleError(message: WebviewMessage): Promise<void> {
-        vscode.window.showErrorMessage(String(message.payload));
-    }
-
     private handleTest(message: WebviewMessage): void {
         console.log('Test message received:', message.payload);
     }
