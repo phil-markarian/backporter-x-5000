@@ -45,6 +45,9 @@ importers:
       typescript:
         specifier: ^5.5.4
         version: 5.6.2
+      undici-types:
+        specifier: ^7.0.0
+        version: 7.0.0
       webpack:
         specifier: ^5.94.0
         version: 5.94.0(webpack-cli@5.1.4)
@@ -1277,6 +1280,9 @@ packages:
 
   undici-types@6.19.8:
     resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
+
+  undici-types@7.0.0:
+    resolution: {integrity: sha512-KGeRdWTIBFYWOPvnssHfsmYsWSdcLWOcdvchHZ5tqdhGWuKg3wBXc5o2eTe/KORc3Yinrrddt8+zYBdSr46Pkw==}
 
   update-browserslist-db@1.1.0:
     resolution: {integrity: sha512-EdRAaAyk2cUE1wOf2DkEhzxqOQvFOoRJFNS6NeyJ01Gp2beMRpBAINjM2iDXE3KCuKhwnvHIQCJm6ThL2Z+HzQ==}
@@ -2639,6 +2645,8 @@ snapshots:
   typescript@5.6.2: {}
 
   undici-types@6.19.8: {}
+
+  undici-types@7.0.0: {}
 
   update-browserslist-db@1.1.0(browserslist@4.23.3):
     dependencies:
