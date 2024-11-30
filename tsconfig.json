@@ -7,16 +7,14 @@
         "rootDir": "src",
         "outDir": "dist",
         "strict": true,
-        "skipLibCheck": true,
-        "types": ["node", "mocha"],
-        "moduleResolution": "node16"
+        "moduleResolution": "NodeNext",
+        "composite": true
     },
-    "include": [
-        "src/**/*.ts"
-    ],
+    "include": ["src/**/*.ts"],
     "exclude": [
         "node_modules",
         "dist",
-        "src/ui/webview"
+        "build",
+        "src/ui/webview/**/*"  // Exclude webview from main compilation
     ]
 }
