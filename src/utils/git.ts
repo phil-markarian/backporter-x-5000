@@ -2,6 +2,7 @@ import { exec } from 'child_process';
 import * as vscode from 'vscode';
 import { WorkspaceService } from '../services/workspaceService';
 import { LanguageService } from '../services/languageService';
+import { CleanupState, GitHubUser } from '../types';
 export class GitUtils {
     private readonly strings: Record<string, string>;
 
@@ -315,15 +316,22 @@ export class GitUtils {
         number: string,
         repo: string,
         assignee?: string,
-        reviewer?: string
+        reviewer?: string,
+        state?: string
     }): Promise<void> {
+        if (options.state) {
+            await this.execCommand(
+                `gh pr edit ${options.number} --repo ${options.repo} --state ${options.state}`
+            );
+        }
+
         if (options.assignee) {
             const assignCmd = options.assignee === '@self'
                 ? `gh pr edit ${options.number} --repo ${options.repo} --add-assignee "@me"`
                 : `gh pr edit ${options.number} --repo ${options.repo} --add-assignee "${options.assignee.substring(1)}"`;
             await this.execCommand(assignCmd);
         }
-        
+
         if (options.reviewer) {
             await this.execCommand(
                 `gh pr edit ${options.number} --repo ${options.repo} --add-reviewer "${options.reviewer.substring(1)}"`
@@ -422,5 +430,112 @@ export class GitUtils {
         const command = `gh api /user/memberships/orgs --jq '.[].organization.login'`;
         const output = await this.execCommand(command);
         return output.split('\n').filter(org => org.trim());
+    }
+
+    async deleteBranchSafely(branchName: string, force: boolean) {
+        if (branchName === 'main' || branchName === 'master') {
+            throw new Error('Cannot delete main/master branch');
+        }
+        await this.deleteBranch(branchName, force);
+    }
+
+    async performCleanup(state: CleanupState): Promise<void> {
+        try {
+            // 1. Abort any in-progress operations
+            const status = await this.getStatus();
+            if (status.includes('cherry-pick')) {
+                await this.abortCherryPick();
+            }
+    
+            // 2. Reset working directory
+            await this.resetHard();
+    
+            // 3. Delete local branch - with safety check
+            if (await this.localBranchExists(state.branch)) {
+                const currentBranch = await this.getCurrentBranch();
+                if (currentBranch === state.branch) {
+                    await this.checkout('main');
+                }
+                await this.deleteBranchSafely(state.branch, state.force ?? true);
+            }
+    
+            // 4. Delete remote branch if exists
+            if (state.remoteBranch) {
+                const remoteExists = await this.remoteBranchExists(state.branch);
+                if (remoteExists) {
+                    await this.deleteRemoteBranch(state.branch);
+                }
+            }
+    
+            // 5. Close PR if exists
+            if (state.pr?.number && state.pr?.repo) {
+                await this.editPr({
+                    ...state.pr,
+                    state: 'closed'
+                });
+            }
+    
+            // 6. Restore original branch
+            await this.checkout(state.originalBranch);
+    
+        } catch (error) {
+            console.error('Cleanup failed:', error);
+            throw new Error(this.strings.cleanup_failed);
+        }
+    }
+
+    async fetchGitHubUsers(repoName: string): Promise<GitHubUser[]> {
+        try {
+            const [owner] = repoName.split('/');
+            const currentUser = await this.getCurrentUser();
+            const isPersonalRepo = owner.trim() === currentUser.trim();
+            let users: GitHubUser[] = [];
+    
+            if (isPersonalRepo) {
+                const collaborators = await this.getRepoCollaborators(repoName);
+                users = [
+                    { label: currentUser.trim(), type: 'user' as const },
+                    ...collaborators.map(c => ({ label: c, type: 'user' as const }))
+                ];
+            } else {
+                try {
+                    const orgMembers = await this.getOrgMembers(owner);
+                    const collaborators = await this.getRepoCollaborators(repoName);
+                    const teams = await this.getOrgTeams(owner);
+                    
+                    users = [
+                        ...orgMembers.map(c => ({ label: c, type: 'user' as const })),
+                        ...collaborators.map(c => ({ label: c, type: 'user' as const })),
+                        ...teams.map(t => ({ label: t, type: 'team' as const }))
+                    ];
+                } catch (error) {
+                    const collaborators = await this.getRepoCollaborators(repoName);
+                    users = collaborators.map(c => ({ label: c, type: 'user' as const }));
+                }
+            }
+    
+            // Type guard for the Set operation
+            const uniqueUsers = [...new Set(users.map(u => JSON.stringify(u)))].map(u => {
+                const parsed = JSON.parse(u);
+                return {
+                    label: parsed.label,
+                    type: parsed.type as 'user' | 'team'
+                };
+            });
+    
+            return uniqueUsers;
+        } catch (error: any) {
+            throw new Error(`${this.strings.pr_fetch_github_users_failed}: ${error.message}`);
+        }
+    }
+
+    async getOrgTeams(org: string): Promise<string[]> {
+        try {
+            const result = await this.execCommand(`gh api orgs/${org}/teams --jq '.[].slug'`);
+            return result.split('\n').filter(Boolean);
+        } catch (error: any) {
+            console.error('Failed to fetch org teams:', error);
+            return [];
+        }
     }
 }
