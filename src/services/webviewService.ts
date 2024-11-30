@@ -46,17 +46,24 @@ export class WebviewService {
         );
     }
 
-    async getPrSelectionHtml(webview: vscode.Webview, prInfo: PRInfo): Promise<string> {
+    /* async getPrSelectionHtml(webview: vscode.Webview, prInfo: PRInfo): Promise<string> {
         const scriptUri = webview.asWebviewUri(vscode.Uri.file(
             path.join(this.context.extensionPath, 'build', 'prSelectionScript.js')
         ));
         
         const styles = getPrSelectionStyles();
         return this.getPrSelectionHtmlContent(webview.cspSource, scriptUri, prInfo, styles);
-    }
+    } */
 
     private validateResources(): void {
-        const scriptPath = path.join(this.context.extensionPath, 'build', 'webview.js');
+        const scriptPath = path.join(
+            this.context.extensionPath,
+            'build',
+            'webview',
+            'ui',
+            'webview',
+            'webview.js'
+        );
         const imagePath = path.join(this.context.extensionPath, 'media', 'side-image.jpg');
         
         if (!fs.existsSync(scriptPath)) {
