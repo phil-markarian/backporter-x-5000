@@ -81,3 +81,19 @@ export interface WebviewState {
     currentLanguage: string;
     strings: Record<string, string>;
 }
+
+export interface CleanupState {
+    branch: string;
+    originalBranch: string;
+    remoteBranch?: boolean;
+    pr?: {
+        number: string;
+        repo: string;
+    };
+    force?: boolean;
+}
+
+export interface GitHubUser {
+    label: string;
+    type: 'user' | 'team';
+}
