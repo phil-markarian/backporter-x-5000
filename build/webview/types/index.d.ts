@@ -24,6 +24,10 @@ export interface StateData {
             branch: string;
             commit: string;
             hasConflicts: boolean;
+            repoName: string;
+            prUrl: string;
+            version: string;
+            files?: string[];
         };
         branchCreation?: {
             status: "pending" | "success" | "failed";
@@ -77,4 +81,11 @@ export interface BackportedPR {
     version: string;
     url: string;
     number: string;
+}
+export interface BranchCreationResult {
+    success: boolean;
+    hasConflicts: boolean;
+    conflictedFiles?: string[];
+    error?: string;
+    resolutionInProgress?: boolean;
 }
