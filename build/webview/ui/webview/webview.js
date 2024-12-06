@@ -33,8 +33,17 @@
             case "success":
                 handleSuccess(message.payload);
                 break;
+            case "conflictState":
+                const { hasConflicts, files } = message.payload;
+                if (hasConflicts) {
+                    setLoading(true); // Keep button in loading state
+                }
+                else {
+                    setLoading(false);
+                }
+                break;
             case "loading":
-                setLoading(message.payload);
+                setLoading(message.payload.isLoading, message.payload.wasCancelled);
                 break;
             case "validationError":
                 showValidationError(message.payload);
@@ -330,13 +339,12 @@
             }
             console.log("Submit button clicked");
             try {
-                const formData = new FormData(formElements.form);
                 const data = {
-                    newRepoName: formData.get("newRepoName") || "",
-                    repoName: formData.get("repoName") || "",
-                    versions: formData.get("versions") || "",
-                    cherryPickCommit: formData.get("cherryPickCommit") || "",
-                    prUrl: formData.get("prUrl") || "",
+                    newRepoName: formElements.newRepoNameInput?.value || "",
+                    repoName: formElements.repoNameSelect?.value || "",
+                    versions: formElements.versionsInput?.value || "",
+                    cherryPickCommit: formElements.cherryPickInput?.value || "",
+                    prUrl: formElements.prUrlInput?.value || "",
                 };
                 console.log("Form data:", data);
                 const validation = validateForm(data);
@@ -351,7 +359,7 @@
                 console.log("Sending validated data:", data);
                 vscode.postMessage({
                     type: "formSubmit",
-                    payload: data,
+                    data: data,
                 });
             }
             catch (error) {
@@ -399,12 +407,15 @@
         form.insertBefore(successDiv, form.firstChild);
         setTimeout(() => successDiv.remove(), 5000);
     }
-    function setLoading(isLoading) {
+    function setLoading(isLoading, wasCancelled = false) {
         const submitButton = document.getElementById("submitButton");
         submitButton.disabled = isLoading;
-        submitButton.textContent = isLoading
-            ? strings.processing_label
-            : strings.submit_button;
+        if (wasCancelled) {
+            submitButton.disabled = false;
+            submitButton.textContent = strings.submit_button;
+            return;
+        }
+        submitButton.textContent = isLoading ? strings.processing_label : strings.submit_button;
     }
     function showValidationError(message) {
         const versionsInput = document.getElementById("versions");
