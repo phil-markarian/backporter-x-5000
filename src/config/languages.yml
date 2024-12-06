@@ -19,6 +19,7 @@ en:
   webview_title: "Backporter X-5000"
   webview_script_not_found: "webview.js not found"
   webview_image_not_found: "Side image not found"
+  backport_starting: "Starting backport process..."
   # v3 peossible feature 
   webview_pr_found_title: "Found PR from commit:"
   webview_pr_not_found: "No PR found"
@@ -33,7 +34,7 @@ en:
   ## StateService Status Messages
   loading_text: "Processing..."
   error_title: "Error"
-  success_title: "Success"
+  success_title: "Backport success!"
   version_remove_title: "Remove version"
 
   ## Branch Management - GitBranchService
@@ -157,6 +158,7 @@ en:
   remove_version: "Remove version"
   processing_label: "Processing..."
   invalid_commit_format: "Invalid commit hash format."
+  resolving_conflicts: "Resolving conflicts..."
 
 ja:
   ## Language Selection
@@ -178,6 +180,7 @@ ja:
   webview_title: "バックポーターX-5000"
   webview_script_not_found: "webview.jsが見つかりません"
   webview_image_not_found: "サイド画像が見つかりません"
+  backport_starting: "横展開を開始します..."
   # v3 peossible feature 
   webview_pr_found_title: "コミットからPRが見つかりました:"
   webview_pr_not_found: "PRが見つかりません"
@@ -192,7 +195,7 @@ ja:
   ## StateService Status Messages
   loading_text: "処理中..."
   error_title: "エラー"
-  success_title: "成功"
+  success_title: "横展開成功！"
   version_remove_title: "バージョンを削除"
 
   ## Branch Management - GitBranchService
@@ -315,3 +318,4 @@ ja:
   remove_version: "バージョンを削除"
   processing_label: "処理中..."
   invalid_commit_format: "無効なコミットハッシュの形式です。"
+  resolving_conflicts: "コンフリクト処理中..."
