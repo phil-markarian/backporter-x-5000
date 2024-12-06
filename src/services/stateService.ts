@@ -7,20 +7,33 @@ import {
 } from "../types";
 import { GitUtils } from "../utils/git";
 import { LanguageService } from "./languageService";
+import { PullRequestService } from "./pullRequestService";
 
 export class StateService {
   private state: StateData;
   private readonly stateChangeEmitter = new vscode.EventEmitter<StateData>();
   private readonly branchCreationEmitter =
     new vscode.EventEmitter<PendingBranch>();
+  private readonly conflictStateEmitter = new vscode.EventEmitter<{
+    hasConflicts: boolean;
+    files?: string[];
+    branch?: string;
+  }>();
+  private readonly conflictResolutionEmitter = new vscode.EventEmitter<{
+    resolved: boolean;
+    branch?: string;
+  }>();
 
   readonly onStateChanged = this.stateChangeEmitter.event;
   readonly onBranchCreationRequested = this.branchCreationEmitter.event;
+  readonly onConflictStateChanged = this.conflictStateEmitter.event;
+  readonly onConflictResolution = this.conflictResolutionEmitter.event;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly gitUtils: GitUtils,
     private readonly languageService: LanguageService,
+    private readonly pullRequestServiceFactory: (repoName: string) => Promise<PullRequestService>
   ) {
     this.state = this.initializeState();
   }
@@ -32,6 +45,59 @@ export class StateService {
       lastUpdated: Date.now(),
       pendingOperations: {},
     };
+  }
+
+  async handleConflictResolution(branch: string): Promise<void> {
+    const pendingBranch = this.state.pendingOperations.cherryPick;
+    if (!pendingBranch) {return;}
+  
+    try {
+      // Push branch first
+      await this.gitUtils.ensureBranchPushed(branch);
+      
+      const prService = await this.pullRequestServiceFactory(pendingBranch.repoName);
+      await prService.createPullRequest(
+        pendingBranch.prUrl,
+        branch,
+        pendingBranch.version
+      );
+  
+      // Fire resolution event
+      this.conflictResolutionEmitter.fire({
+        resolved: true,
+        branch
+      });
+    } catch (error) {
+      console.error('Failed to handle conflict resolution:', error);
+      throw error;
+    }
+  }
+  
+    async handlePullRequest(params: {
+    repoName: string;
+    prUrl: string;
+    branch: string;
+    version: string;
+  }): Promise<void> {
+    try {
+      console.log("StateService.handlePullRequest called with:", params);
+      
+      // Log before push attempt
+      console.log("Attempting to push branch:", params.branch);
+      await this.gitUtils.push(params.branch);
+      
+      console.log("Branch pushed successfully, creating PR service for repo:", params.repoName);
+      const prService = await this.pullRequestServiceFactory(params.repoName);
+      
+      await prService.createPullRequest(
+        params.prUrl,
+        params.branch,
+        params.version
+      );
+    } catch (error) {
+      console.error('Failed to create PR:', error);
+      throw error;
+    }
   }
 
   async handleLanguageChange(
@@ -214,8 +280,17 @@ export class StateService {
     if (!repoName?.trim()) {
       throw new Error("Repository name cannot be empty");
     }
-
-    const uniqueVersions = Array.from(new Set(versions.filter(Boolean)));
+  
+    // Get existing versions first
+    const existingVersions = this.state.savedVersions[repoName] || [];
+    
+    // Merge existing and new versions, remove duplicates
+    const uniqueVersions = Array.from(new Set([
+      ...existingVersions,
+      ...versions.filter(Boolean)
+    ]));
+  
+    // Update state with merged versions
     this.state.savedVersions[repoName] = uniqueVersions;
     await this.saveState();
   }
@@ -224,17 +299,29 @@ export class StateService {
     return [...(this.state.savedVersions[repoName] || [])];
   }
 
-  private async saveState(): Promise<void> {
+private async saveState(): Promise<void> {
+  try {
     await Promise.all([
-      this.context.globalState.update(
-        "savedVersions",
-        this.state.savedVersions,
-      ),
-      this.context.globalState.update("savedRepos", this.state.savedRepos),
+      this.context.globalState.update("savedVersions", this.state.savedVersions),
+      this.context.globalState.update("savedRepos", this.state.savedRepos)
     ]);
+    
+    // Verify the save
+    const savedVersions = this.context.globalState.get("savedVersions");
+    const savedRepos = this.context.globalState.get("savedRepos");
+    
+    if (!savedVersions || !savedRepos) {
+      throw new Error("Failed to save state");
+    }
+
     this.state.lastUpdated = Date.now();
     this.stateChangeEmitter.fire(this.state);
+  } catch (error) {
+    console.error("Failed to save state:", error);
+    throw error;
   }
+}
+
 
   private async handleFormSubmit(message: WebviewMessage): Promise<void> {
     const strings = this.languageService.getStringsForLanguage(
@@ -308,20 +395,50 @@ export class StateService {
     this.stateChangeEmitter.fire(this.state);
   }
 
-  async updateCherryPickState(status: {
+    async updateCherryPickState(status: {
     inProgress: boolean;
-    branch?: string;
-    commit?: string;
-    hasConflicts?: boolean;
+    branch: string;
+    commit: string;
+    hasConflicts: boolean;
+    repoName: string;
+    prUrl: string;
+    version: string;
+    files?: string[];
+    success?: boolean;
   }): Promise<void> {
-    this.updateOperationState({
-      cherryPick: {
-        inProgress: status.inProgress,
-        branch: status.branch || "",
-        commit: status.commit || "",
-        hasConflicts: status.hasConflicts || false,
-      },
-    });
+    console.log("Updating cherry-pick state:", status);
+  
+    if (!this.state.pendingOperations.cherryPick) {
+      // Initialize if doesn't exist
+      this.state.pendingOperations.cherryPick = status;
+    } else {
+      // Update existing state
+      this.state.pendingOperations.cherryPick = {
+        ...this.state.pendingOperations.cherryPick,
+        ...status
+      };
+    }
+  
+    if (!status.hasConflicts && status.success && status.branch) {
+      await this.handlePullRequest({
+        repoName: status.repoName,
+        prUrl: status.prUrl,
+        branch: status.branch,
+        version: status.version
+      });
+    }
+  
+    // Emit state changes
+    if ('hasConflicts' in status) {
+      this.conflictStateEmitter.fire({
+        hasConflicts: status.hasConflicts,
+        files: status.files,
+        branch: status.branch
+      });
+    }
+  
+    // Save state changes
+    await this.saveState();
   }
 
   async reset(): Promise<void> {
