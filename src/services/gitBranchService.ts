@@ -4,6 +4,7 @@ import { GitUtils } from "../utils/git";
 import { WorkspaceService } from "./workspaceService";
 import { StateService } from "./stateService";
 import { LanguageService } from "./languageService";
+import { BranchCreationResult } from "../types";
 
 export class GitBranchService {
   private workspaceService: WorkspaceService;
@@ -19,73 +20,100 @@ export class GitBranchService {
       this.languageService.getCurrentLanguage(),
     );
   }
-
+  
   async createBranchAndCherryPick(
     version: string,
     cherryPickCommit: string,
     newBranch: string,
-  ): Promise<boolean> {
+  ): Promise<BranchCreationResult> {
     const originalBranch = await this.gitUtils.getCurrentBranch();
-
+  
     try {
-      // Validate commit exists
-      const commitExists =
-        await this.gitUtils.validateCommitExists(cherryPickCommit);
-      if (!commitExists) {
-        throw new Error(
-          this.strings.error_not_found.replace("{0}", cherryPickCommit),
-        );
-      }
-
-      // Fetch latest changes
+      // Fetch all changes first
       await this.gitUtils.fetchAll();
-
+  
+      // Enhanced commit validation
+      try {
+        const commitExists = await this.gitUtils.validateCommitExists(cherryPickCommit);
+        if (!commitExists) {
+          return {
+            success: false,
+            hasConflicts: false,
+            error: this.strings.error_not_found.replace("{0}", cherryPickCommit)
+          };
+        }
+      } catch (validationError) {
+        // If validation throws, try fetching the specific commit
+        try {
+          await this.gitUtils.fetch(cherryPickCommit);
+          // Validate again after fetch
+          const commitExists = await this.gitUtils.validateCommitExists(cherryPickCommit);
+          if (!commitExists) {
+            throw new Error(this.strings.error_not_found.replace("{0}", cherryPickCommit));
+          }
+        } catch (fetchError) {
+          return {
+            success: false,
+            hasConflicts: false,
+            error: this.strings.error_commit_fetch_failed.replace("{0}", cherryPickCommit)
+          };
+        }
+      }
+  
       // Check if branch exists and handle
       const branchExists = await this.gitUtils.branchExists(newBranch);
       if (branchExists) {
         const newBranchName = await this.handleExistingBranch(newBranch);
         if (!newBranchName) {
-          return false;
+          return { 
+            success: false, 
+            hasConflicts: false,
+            error: this.strings.error_branch_exists.replace("{0}", newBranch)
+          };
         }
         newBranch = newBranchName;
       }
-
+  
       // Checkout version branch and create new branch
       await this.gitUtils.checkout(version);
       await this.gitUtils.createBranch(newBranch);
-
+  
       // Check if commit is a merge commit
-      const isMergeCommit =
-        await this.gitUtils.checkIfMergeCommit(cherryPickCommit);
-
-      // Attempt cherry-pick with appropriate flags
+      const isMergeCommit = await this.gitUtils.checkIfMergeCommit(cherryPickCommit);
+  
       try {
         await this.gitUtils.cherryPick(cherryPickCommit, isMergeCommit);
-
-        vscode.window.showInformationMessage(this.strings.success_title);
-
-        return true;
-      } catch (error: any) {
-        const hasConflicts =
-          error.message.includes("after resolving the conflicts") ||
-          error.message.includes("could not apply") ||
-          error.stderr?.includes("after resolving the conflicts") ||
-          error.stderr?.includes("could not apply");
-
-        if (hasConflicts) {
-          const resolved = await this.handleCherryPickConflict(newBranch);
-          if (!resolved) {
-            await this.gitUtils.performCleanup({
-              branch: newBranch,
-              originalBranch,
-              force: true,
-            });
-            return false;
-          }
-          return true;
+        
+        const conflictedFiles = await this.gitUtils.getConflictedFiles();
+        if (conflictedFiles.length > 0) {
+          this.handleCherryPickConflict(newBranch); // Don't await
+          return {
+            success: false,
+            hasConflicts: true,
+            conflictedFiles,
+            resolutionInProgress: true
+          };
         }
-        throw error;
+  
+        return { 
+          success: true, 
+          hasConflicts: false 
+        };
+  
+      } catch (cherryPickError: any) {
+        const conflictedFiles = await this.gitUtils.getConflictedFiles();
+        if (conflictedFiles.length > 0) {
+          this.handleCherryPickConflict(newBranch); // Don't await
+          return {
+            success: false,
+            hasConflicts: true,
+            conflictedFiles,
+            resolutionInProgress: true
+          };
+        }
+        throw cherryPickError;
       }
+  
     } catch (error: any) {
       const expectedErrors = [
         "no cherry-pick or revert in progress",
@@ -94,7 +122,7 @@ export class GitBranchService {
         "already exists",
         "is a merge but no -m option was given",
       ];
-
+  
       if (!expectedErrors.some((msg) => error.message.includes(msg))) {
         await this.handleBranchCreationError(error, newBranch, originalBranch);
       } else {
@@ -104,7 +132,12 @@ export class GitBranchService {
           force: true,
         });
       }
-      return false;
+  
+      return { 
+        success: false,
+        hasConflicts: false,
+        error: error.message
+      };
     }
   }
 
@@ -211,17 +244,24 @@ export class GitBranchService {
 
   private async handleCherryPickConflict(branchName: string): Promise<boolean> {
     try {
+      const cherryPickState = this.stateService.getState().pendingOperations.cherryPick;
+      
       await this.stateService.updateCherryPickState({
         inProgress: true,
         branch: branchName,
+        commit: cherryPickState?.commit || '',
         hasConflicts: true,
+        repoName: cherryPickState?.repoName || '',
+        prUrl: cherryPickState?.prUrl || '',
+        version: cherryPickState?.version || '',
+        files: await this.gitUtils.getConflictedFiles()
       });
-
+  
       const conflictedFiles = await this.gitUtils.getConflictedFiles();
       if (conflictedFiles.length === 0) {
         return true;
       }
-
+  
       const resolved = await this.resolveConflicts(conflictedFiles);
       return resolved;
     } catch (error) {
@@ -231,9 +271,16 @@ export class GitBranchService {
         originalBranch: await this.gitUtils.getCurrentBranch(),
         force: true,
       });
+      
+      const cherryPickState = this.stateService.getState().pendingOperations.cherryPick;
       await this.stateService.updateCherryPickState({
         inProgress: false,
         hasConflicts: false,
+        branch: branchName,
+        commit: cherryPickState?.commit || '',
+        repoName: cherryPickState?.repoName || '',
+        prUrl: cherryPickState?.prUrl || '',
+        version: cherryPickState?.version || ''
       });
       return false;
     }
@@ -241,38 +288,61 @@ export class GitBranchService {
 
   private async resolveConflicts(files: string[]): Promise<boolean> {
     try {
-      // Remove duplicate prompt and just handle the resolution flow
       await this.openConflictedFiles(files);
       const resolution = await this.waitForConflictResolution(files);
-
+  
       if (resolution === "continue") {
-        // Stage resolved files
+        console.log("Resolving conflicts...");
         await this.gitUtils.addAll();
-
-        // Continue cherry-pick
         await this.gitUtils.cherryPickContinue();
-
+  
+        const currentBranch = await this.gitUtils.getCurrentBranch();
+        console.log("Conflicts resolved, updating state for branch:", currentBranch);
+  
+        // Push the changes
+        await this.gitUtils.push(currentBranch);
+        console.log("Changes pushed to remote");
+  
+        const cherryPickState = this.stateService.getState().pendingOperations.cherryPick;
+        // Update state to trigger PR creation
         await this.stateService.updateCherryPickState({
           inProgress: false,
           hasConflicts: false,
+          branch: currentBranch,
+          commit: cherryPickState?.commit || '',
+          repoName: cherryPickState?.repoName || '',
+          prUrl: cherryPickState?.prUrl || '',
+          version: cherryPickState?.version || '',
+          success: true 
         });
-
-        vscode.window.showInformationMessage(this.strings.success_title);
+  
         return true;
       } else {
         await this.gitUtils.abortCherryPick();
+        const cherryPickState = this.stateService.getState().pendingOperations.cherryPick;
         await this.stateService.updateCherryPickState({
           inProgress: false,
           hasConflicts: false,
+          branch: cherryPickState?.branch || '',
+          commit: cherryPickState?.commit || '',
+          repoName: cherryPickState?.repoName || '',
+          prUrl: cherryPickState?.prUrl || '',
+          version: cherryPickState?.version || ''
         });
         return false;
       }
     } catch (error) {
       console.error(this.strings.error_cherry_pick_failed, error);
       await this.gitUtils.abortCherryPick();
+      const cherryPickState = this.stateService.getState().pendingOperations.cherryPick;
       await this.stateService.updateCherryPickState({
         inProgress: false,
         hasConflicts: false,
+        branch: cherryPickState?.branch || '',
+        commit: cherryPickState?.commit || '',
+        repoName: cherryPickState?.repoName || '',
+        prUrl: cherryPickState?.prUrl || '',
+        version: cherryPickState?.version || ''
       });
       return false;
     }

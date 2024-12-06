@@ -33,12 +33,21 @@ declare function acquireVsCodeApi(): any;
           formElements.prUrlError.style.display = "none";
         }
         break;
+
       case "error":
         showError(message.payload);
         break;
 
       case "success":
         handleSuccess(message.payload);
+        break;
+      case "conflictState":
+        const { hasConflicts, files } = message.payload;
+        if (hasConflicts) {
+          setLoading(true); // Keep button in loading state
+        } else {
+          setLoading(false);
+        }
         break;
 
       case "loading":
@@ -419,13 +428,12 @@ declare function acquireVsCodeApi(): any;
 
       console.log("Submit button clicked");
       try {
-        const formData = new FormData(formElements.form);
         const data: BackportFormData = {
-          newRepoName: (formData.get("newRepoName") as string) || "",
-          repoName: (formData.get("repoName") as string) || "",
-          versions: (formData.get("versions") as string) || "",
-          cherryPickCommit: (formData.get("cherryPickCommit") as string) || "",
-          prUrl: (formData.get("prUrl") as string) || "",
+          newRepoName: formElements.newRepoNameInput?.value || "",
+          repoName: formElements.repoNameSelect?.value || "",
+          versions: formElements.versionsInput?.value || "",
+          cherryPickCommit: formElements.cherryPickInput?.value || "",
+          prUrl: formElements.prUrlInput?.value || "",
         };
 
         console.log("Form data:", data);
@@ -443,7 +451,7 @@ declare function acquireVsCodeApi(): any;
         console.log("Sending validated data:", data);
         vscode.postMessage({
           type: "formSubmit",
-          payload: data,
+          data: data,
         });
       } catch (error) {
         console.error("Error processing form:", error);

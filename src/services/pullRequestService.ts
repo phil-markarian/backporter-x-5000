@@ -110,7 +110,14 @@ export class PullRequestService {
     newBranch: string,
     version: string,
   ): Promise<void> {
+    console.log("PullRequestService.createPullRequest called with:", {
+      prUrl,
+      newBranch,
+      version,
+      validatedRepoName: this.validatedRepoName
+    });
     if (!this.validatedRepoName) {
+      console.log("No validated repo name, initializing...");
       await this.init();
     }
 
@@ -231,9 +238,6 @@ export class PullRequestService {
     let prCreatedSuccessfully = false;
 
     try {
-      await this.gitUtils.push(branch);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       const newPrUrl = await this.gitUtils.createPr({
         repo: this.validatedRepoName,
         head: branch,
@@ -290,11 +294,11 @@ export class PullRequestService {
   }
 
   private async updateAllPRsWithSummary(): Promise<void> {
-    const summaryHeader = "## BROUGHT TO YOU BY: BACKPORTER X-5000";
+    const summaryHeader = this.strings.summary_header;
     const summaryLines = [
       "\n\n---",
       summaryHeader,
-      `[main](${this.originalPrUrl})`,
+      `${this.strings.summary_original_pr} [main](${this.originalPrUrl})`,
       ...this.backportedPRs.map((pr) => `[${pr.version}](${pr.url})`),
     ];
 

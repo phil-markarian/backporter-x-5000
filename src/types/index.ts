@@ -31,23 +31,27 @@ export type MessageType =
   | "validationError"
   | "webviewReady";
 
-export interface StateData {
-  savedVersions: { [key: string]: string[] };
-  savedRepos: string[];
-  lastUpdated: number;
-  pendingOperations: {
-    cherryPick?: {
-      inProgress: boolean;
-      branch: string;
-      commit: string;
-      hasConflicts: boolean;
+  export interface StateData {
+    savedVersions: { [key: string]: string[] };
+    savedRepos: string[];
+    lastUpdated: number;
+    pendingOperations: {
+      cherryPick?: {
+        inProgress: boolean;
+        branch: string;
+        commit: string;
+        hasConflicts: boolean;
+        repoName: string;
+        prUrl: string;
+        version: string;
+        files?: string[];  // Add files property
+      };
+      branchCreation?: {
+        status: "pending" | "success" | "failed";
+        error?: string;
+      };
     };
-    branchCreation?: {
-      status: "pending" | "success" | "failed";
-      error?: string;
-    };
-  };
-}
+  }
 
 export interface PRInfo {
   title?: string;
@@ -102,4 +106,13 @@ export interface BackportedPR {
   version: string;
   url: string;
   number: string;
+}
+
+
+export interface BranchCreationResult {
+  success: boolean;
+  hasConflicts: boolean;
+  conflictedFiles?: string[];
+  error?: string;
+  resolutionInProgress?: boolean;
 }
