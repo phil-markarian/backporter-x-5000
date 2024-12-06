@@ -300,6 +300,10 @@ export class GitUtils {
     return this.execCommand("git status");
   }
 
+  async fetch(commit: string): Promise<void> {
+    await this.execCommand(`git fetch origin ${commit}`);
+  }
+
   async validateCommitExists(commitHash: string): Promise<boolean> {
     return this.execCommand(`git cat-file -t ${commitHash}`)
       .then(() => true)
@@ -339,6 +343,7 @@ export class GitUtils {
     return this.execCommand(cmd);
   }
 
+    // In git.ts - Update createPr method
   async createPr(options: {
     repo: string;
     head: string;
@@ -346,12 +351,70 @@ export class GitUtils {
     title: string;
     body: string;
   }): Promise<string> {
-    const cmd = `gh pr create --repo ${options.repo} \
-            --head ${options.head} \
-            --base ${options.base} \
-            --title "${options.title}" \
-            --body "${options.body}"`;
-    return this.execCommand(cmd);
+    try {
+      console.log("Creating PR with options:", {
+        ...options,
+        body: options.body.substring(0, 100) + "..." // Log truncated body
+      });
+  
+      const escapedTitle = options.title.replace(/"/g, '\\"');
+      const escapedBody = options.body.replace(/"/g, '\\"').replace(/`/g, '\\`');
+  
+      const cmd = [
+        'gh pr create',
+        `--repo ${options.repo}`,
+        `--head ${options.head}`,
+        `--base ${options.base}`,
+        `--title "${escapedTitle}"`,
+        `--body "${escapedBody}"`
+      ].join(' ');
+  
+      const result = await this.execCommand(cmd);
+      console.log("PR creation successful:", result);
+      return result;
+    } catch (error) {
+      console.error("PR creation failed:", error);
+      throw new Error(`${this.strings.pr_creation_failed}: ${error}`);
+    }
+  }
+  
+  // Add helper method to check if branch is pushed
+  async isBranchPushed(branch: string): Promise<boolean> {
+    try {
+      const result = await this.execCommand(`git ls-remote --heads origin ${branch}`);
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error checking if branch is pushed:", error);
+      return false;
+    }
+  }
+  
+  // Add method to ensure branch is pushed
+  async ensureBranchPushed(branch: string): Promise<void> {
+    const isPushed = await this.isBranchPushed(branch);
+    if (!isPushed) {
+      console.log("Branch not pushed, pushing now:", branch);
+      await this.push(branch);
+    }
+  }
+
+  async canAssignReviewer(repoName: string, reviewer: string): Promise<boolean> {
+    try {
+      // For teams, check if team exists in org
+      if (reviewer.includes('/')) {
+        const [org] = repoName.split('/');
+        const teams = await this.getOrgTeams(org);
+        const teamName = reviewer.split('/')[1]; // Get team name without org prefix
+        return teams.includes(teamName);
+      }
+  
+      // For users, check if user exists and has access
+      const users = await this.fetchGitHubUsers(repoName);
+      return users.some(u => u.label === reviewer || `@${u.label}` === reviewer);
+    } catch (error) {
+      console.error('Error checking reviewer:', error);
+      return false;
+    }
   }
 
   async editPr(options: {
@@ -388,10 +451,34 @@ export class GitUtils {
     }
 
     if (options.reviewer) {
-      await this.execCommand(
-        `gh pr edit ${options.number} --repo ${options.repo} --add-reviewer "${options.reviewer.substring(1)}"`,
-      );
-    }
+      const [org] = options.repo.split('/');
+      let reviewerName = options.reviewer;
+  
+      // Handle team names
+      if (reviewerName.startsWith('@')) {
+          const teamName = reviewerName.substring(1);
+          const teams = await this.getOrgTeams(org);
+          
+          // Check if it's a team
+          if (teams.includes(teamName)) {
+              reviewerName = `${org}/${teamName}`;
+          } else {
+              // Assume it's a user
+              reviewerName = teamName;
+          }
+      }
+  
+      try {
+          await this.execCommand(
+              `gh pr edit ${options.number} --repo ${options.repo} --add-reviewer "${reviewerName}"`
+          );
+      } catch (error: any) {
+          if (error.message.includes('not found')) {
+              throw new Error(`Reviewer ${reviewerName} not found in ${options.repo}`);
+          }
+          throw error;
+      }
+  }
   }
 
   async listPrs(options: {
