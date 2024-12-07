@@ -17,7 +17,6 @@ export interface WebviewMessage {
 
 export type MessageType =
   | "error"
-  | "test"
   | "loadSavedVersions"
   | "deleteVersion"
   | "formSubmit"
@@ -29,23 +28,16 @@ export type MessageType =
   | "success"
   | "loading"
   | "validationError"
-  | "webviewReady";
+  | "webviewReady"
+  | "validatePrUrl";
 
+  // figure out what to do about status and success on cherrypickstate
   export interface StateData {
     savedVersions: { [key: string]: string[] };
     savedRepos: string[];
     lastUpdated: number;
     pendingOperations: {
-      cherryPick?: {
-        inProgress: boolean;
-        branch: string;
-        commit: string;
-        hasConflicts: boolean;
-        repoName: string;
-        prUrl: string;
-        version: string;
-        files?: string[];  // Add files property
-      };
+      cherryPick?: CherryPickState;
       branchCreation?: {
         status: "pending" | "success" | "failed";
         error?: string;
@@ -115,4 +107,13 @@ export interface BranchCreationResult {
   conflictedFiles?: string[];
   error?: string;
   resolutionInProgress?: boolean;
+}
+
+export interface CherryPickState {
+  inProgress: boolean;
+  branch: string;
+  commit: string;
+  hasConflicts: boolean;
+  files?: string[];
+  success?: boolean;
 }
