@@ -251,6 +251,14 @@ export class MessageHandlerService {
   
               if (result.hasConflicts) {
                 const resolved = await new Promise<boolean>((resolve) => {
+                  this.stateService.updateCherryPickState({
+                    inProgress: true,
+                    branch: newBranch,
+                    commit: formData.cherryPickCommit,
+                    hasConflicts: true,
+                    success: false
+                  });
+        
                   const disposable = this.stateService.onConflictResolution(({resolved, branch}) => {
                     if (branch === newBranch) {
                       disposable.dispose();
