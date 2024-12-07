@@ -251,9 +251,6 @@ export class GitBranchService {
         branch: branchName,
         commit: cherryPickState?.commit || '',
         hasConflicts: true,
-        repoName: cherryPickState?.repoName || '',
-        prUrl: cherryPickState?.prUrl || '',
-        version: cherryPickState?.version || '',
         files: await this.gitUtils.getConflictedFiles()
       });
   
@@ -278,9 +275,6 @@ export class GitBranchService {
         hasConflicts: false,
         branch: branchName,
         commit: cherryPickState?.commit || '',
-        repoName: cherryPickState?.repoName || '',
-        prUrl: cherryPickState?.prUrl || '',
-        version: cherryPickState?.version || ''
       });
       return false;
     }
@@ -310,10 +304,13 @@ export class GitBranchService {
           hasConflicts: false,
           branch: currentBranch,
           commit: cherryPickState?.commit || '',
-          repoName: cherryPickState?.repoName || '',
-          prUrl: cherryPickState?.prUrl || '',
-          version: cherryPickState?.version || '',
           success: true 
+        });
+
+        // Emit conflict resolution event
+        this.stateService.conflictResolutionEmitter.fire({
+          resolved: true,
+          branch: currentBranch
         });
   
         return true;
@@ -325,9 +322,6 @@ export class GitBranchService {
           hasConflicts: false,
           branch: cherryPickState?.branch || '',
           commit: cherryPickState?.commit || '',
-          repoName: cherryPickState?.repoName || '',
-          prUrl: cherryPickState?.prUrl || '',
-          version: cherryPickState?.version || ''
         });
         return false;
       }
@@ -340,9 +334,6 @@ export class GitBranchService {
         hasConflicts: false,
         branch: cherryPickState?.branch || '',
         commit: cherryPickState?.commit || '',
-        repoName: cherryPickState?.repoName || '',
-        prUrl: cherryPickState?.prUrl || '',
-        version: cherryPickState?.version || ''
       });
       return false;
     }
