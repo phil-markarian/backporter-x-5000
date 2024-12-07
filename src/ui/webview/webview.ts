@@ -451,7 +451,7 @@ declare function acquireVsCodeApi(): any;
         console.log("Sending validated data:", data);
         vscode.postMessage({
           type: "formSubmit",
-          data: data,
+          payload: data,
         });
       } catch (error) {
         console.error("Error processing form:", error);
@@ -535,9 +535,4 @@ declare function acquireVsCodeApi(): any;
   } else {
     initializeForm();
   }
-
-  vscode.postMessage({
-    type: "test",
-    payload: "Script loaded and initialized",
-  });
 })();
