@@ -43,7 +43,7 @@
                 }
                 break;
             case "loading":
-                setLoading(message.payload.isLoading, message.payload.wasCancelled);
+                setLoading(message.payload);
                 break;
             case "validationError":
                 showValidationError(message.payload);
@@ -359,7 +359,7 @@
                 console.log("Sending validated data:", data);
                 vscode.postMessage({
                     type: "formSubmit",
-                    data: data,
+                    payload: data,
                 });
             }
             catch (error) {
@@ -407,15 +407,12 @@
         form.insertBefore(successDiv, form.firstChild);
         setTimeout(() => successDiv.remove(), 5000);
     }
-    function setLoading(isLoading, wasCancelled = false) {
+    function setLoading(isLoading) {
         const submitButton = document.getElementById("submitButton");
         submitButton.disabled = isLoading;
-        if (wasCancelled) {
-            submitButton.disabled = false;
-            submitButton.textContent = strings.submit_button;
-            return;
-        }
-        submitButton.textContent = isLoading ? strings.processing_label : strings.submit_button;
+        submitButton.textContent = isLoading
+            ? strings.processing_label
+            : strings.submit_button;
     }
     function showValidationError(message) {
         const versionsInput = document.getElementById("versions");
@@ -429,8 +426,4 @@
     else {
         initializeForm();
     }
-    vscode.postMessage({
-        type: "test",
-        payload: "Script loaded and initialized",
-    });
 })();
