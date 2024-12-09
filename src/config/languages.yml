@@ -169,6 +169,8 @@ en:
   invalid_commit_format: "Invalid commit hash format."
   resolving_conflicts: "Resolving conflicts..."
 
+  ## MessageHandler Service
+  progress_version_processing: "Processing version {0} ({1}/{2})"
 ja:
   ## Language Selection
   language_en: "English"
@@ -337,3 +339,6 @@ ja:
   processing_label: "処理中..."
   invalid_commit_format: "無効なコミットハッシュの形式です。"
   resolving_conflicts: "コンフリクト処理中..."
+
+  # MessageHandler Service
+  progress_version_processing: "バージョン {0} を処理中 ({1}/{2})"
