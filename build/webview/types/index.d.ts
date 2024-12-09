@@ -83,8 +83,12 @@ export interface BranchCreationResult {
 export interface CherryPickState {
     inProgress: boolean;
     branch: string;
-    commit: string;
+    commit?: string;
     hasConflicts: boolean;
     files?: string[];
     success?: boolean;
+}
+export interface ConflictFile {
+    path: string;
+    resolved: boolean;
 }
