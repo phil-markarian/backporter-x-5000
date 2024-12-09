@@ -224,7 +224,10 @@ export class MessageHandlerService {
   
       const inputVersions = this.parseVersions(formData.versions);
       await this.stateService.saveVersions(finalRepoName, inputVersions);
-  
+
+      // Create PRService instance ONCE outside the loop
+      const prService = await this.pullRequestServiceFactory(finalRepoName);
+
       // Track progress for backport process
       await this.progressManagerService.trackProgress({
         title: "backport_starting",
@@ -236,7 +239,10 @@ export class MessageHandlerService {
             try {
               this.progressManagerService.updateProgress(
                 (completedVersions / totalVersions) * 100,
-                `Processing version ${version} (${completedVersions + 1}/${totalVersions})`
+                this.languageService.getString("progress_version_processing")
+                  .replace("{0}", version)
+                  .replace("{1}", String(completedVersions + 1))
+                  .replace("{2}", String(totalVersions))
               );
               await this.gitUtils.checkout("main");
               const branchName = await this.gitUtils.getBranchNameFromCommit(formData.cherryPickCommit);
@@ -259,7 +265,6 @@ export class MessageHandlerService {
   
               if (result.success || await this.gitUtils.branchExists(newBranch)) {
                 console.log("Attempting PR creation for branch:", newBranch);
-                const prService = await this.pullRequestServiceFactory(finalRepoName);
                 await prService.createPullRequest(formData.prUrl, newBranch, version);
                 console.log("PR created successfully for version:", version);
                 completedVersions++;
@@ -269,6 +274,9 @@ export class MessageHandlerService {
               console.error(`Error processing version ${version}:`, versionError);
             }
           }
+
+          // Force update summary for all PRs after loop completes
+          await prService.updateAllPRsWithSummary();
   
           if (completedVersions > 0) {
             this.progressManagerService.showSuccess(
