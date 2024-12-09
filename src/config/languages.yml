@@ -52,6 +52,15 @@ en:
   error_remote_branch_delete_unknown: "An unexpected error occurred while deleting remote branch {0}."
   cleanup_failed: "Cleanup failed."
 
+  ## UI Service
+  conflict_detected: "Conflicts detected in the following files:"
+  conflict_resolution_instructions: "Please resolve the conflicts in these files."
+  open_files: "Open Files"
+  conflicts_not_resolved: "Some conflicts still remain. Please resolve all conflicts before continuing."
+  complete_resolution: "Complete Conflict Resolution"
+  abort_cherry_pick: "Abort Cherry-Pick"
+  continue_editing: "Continue Editing"
+
   ## Conflict Resolution - GitBranchService
   conflict_resolve_title: "Resolve Conflicts"
   conflict_resolve_message: "Would you like to resolve the conflicts? NOTE: Save after resolving conflicts to continue."
@@ -212,6 +221,15 @@ ja:
   error_remote_branch_delete: "リモートブランチ {0} の削除に失敗しました。ブランチがリモートに存在しないか、権限がない可能性があります。"
   error_remote_branch_delete_unknown: "リモートブランチ {0} の削除中に予期せぬエラーが発生しました。"
   cleanup_failed: "失敗処理が失敗しました"
+
+  ## UI Service
+  conflict_detected: "以下のファイルで競合が検出されました："
+  conflict_resolution_instructions: "これらのファイルの競合を解決してください。"
+  open_files: "ファイルを開く"
+  conflicts_not_resolved: "まだ競合が残っています。続行する前にすべての競合を解決してください。"
+  complete_resolution: "競合解決を完了"
+  abort_cherry_pick: "チェリーピックを中止"
+  continue_editing: "編集を続ける"
 
   ## Conflict Resolution - GitBranchService
   conflict_resolve_title: "コンフリクトの解決"
