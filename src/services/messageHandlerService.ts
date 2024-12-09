@@ -238,7 +238,7 @@ export class MessageHandlerService {
                 (completedVersions / totalVersions) * 100,
                 `Processing version ${version} (${completedVersions + 1}/${totalVersions})`
               );
-  
+              await this.gitUtils.checkout("main");
               const branchName = await this.gitUtils.getBranchNameFromCommit(formData.cherryPickCommit);
               const newBranch = `backport/${branchName}/${version}`;
   
@@ -250,36 +250,21 @@ export class MessageHandlerService {
               );
   
               if (result.hasConflicts) {
-                const resolved = await new Promise<boolean>((resolve) => {
-                  this.stateService.updateCherryPickState({
-                    inProgress: true,
-                    branch: newBranch,
-                    commit: formData.cherryPickCommit,
-                    hasConflicts: true,
-                    success: false
-                  });
-        
-                  const disposable = this.stateService.onConflictResolution(({resolved, branch}) => {
-                    if (branch === newBranch) {
-                      disposable.dispose();
-                      resolve(resolved);
-                    }
-                  });
-                });
-  
-                if (!resolved) {
-                  console.log(`Skipping version ${version}`);
+                if (!result.success) {
+                  console.error(`Skipping version ${version}`);
+                  // Need to handle error here somehow 
                   continue;
                 }
               }
   
-              if (result.success || (result.hasConflicts && await this.gitUtils.branchExists(newBranch))) {
+              if (result.success || await this.gitUtils.branchExists(newBranch)) {
                 console.log("Attempting PR creation for branch:", newBranch);
                 const prService = await this.pullRequestServiceFactory(finalRepoName);
                 await prService.createPullRequest(formData.prUrl, newBranch, version);
                 console.log("PR created successfully for version:", version);
                 completedVersions++;
               }
+
             } catch (versionError) {
               console.error(`Error processing version ${version}:`, versionError);
             }
