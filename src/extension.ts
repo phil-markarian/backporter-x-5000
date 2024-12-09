@@ -9,6 +9,7 @@ import { WebviewService } from "./services/webviewService";
 import { PullRequestService } from "./services/pullRequestService";
 import { ProgressManagerService } from "./services/progressManagerService";
 import { MessageHandlerService } from "./services/messageHandlerService";
+import { UIService } from "./services/uiService";
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize core services
@@ -23,10 +24,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   const progressManagerService = new ProgressManagerService(languageService, stateService);
 
+  const uiService = new UIService(gitUtils, languageService);
+
   const gitBranchService = new GitBranchService(
     gitUtils,
     stateService,
-    languageService
+    languageService,
+    uiService
   );
 
  
