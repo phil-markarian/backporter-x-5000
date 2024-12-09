@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import {
   StateData,
-  PendingBranch,
   CherryPickState,
 } from "../types";
 
@@ -126,6 +125,87 @@ private async saveState(): Promise<void> {
         branch: status.branch
       });
     }
+  }
+
+  async startCherryPick(branch: string, commit: string): Promise<void> {
+    await this.updateCherryPickState({
+      inProgress: true,
+      branch,
+      commit,
+      hasConflicts: false,
+      success: false
+    });
+  }
+
+  async finishCherryPick(branch: string, success: boolean = true): Promise<void> {
+    await this.updateCherryPickState({
+      inProgress: false,
+      branch,
+      commit: '',
+      hasConflicts: false,
+      success
+    });
+  }
+
+  async handleCherryPickError(branch: string, error?: string): Promise<void> {
+    await this.updateCherryPickState({
+      inProgress: false,
+      branch,
+      hasConflicts: false,
+      success: false
+    });
+  }
+
+  async resetCherryPickState(options?: { 
+    keepBranch?: boolean,
+    branch?: string 
+  }): Promise<void> {
+    await this.updateCherryPickState({
+      inProgress: false,
+      branch: options?.keepBranch ? (options.branch || '') : '',
+      commit: '',
+      hasConflicts: false,
+      success: false,
+      files: []
+    });
+    
+    this.conflictStateEmitter.fire({
+      hasConflicts: false,
+      files: [],
+      branch: options?.keepBranch ? (options.branch || '') : ''
+    });
+  }
+
+  async handleConflict(branch: string, commit: string, files: string[]): Promise<void> {
+    await this.updateCherryPickState({
+      inProgress: true,
+      branch,
+      commit,
+      hasConflicts: true,
+      files,
+      success: false
+    });
+    
+    this.conflictStateEmitter.fire({
+      hasConflicts: true,
+      files,
+      branch
+    });
+  }
+
+  async resolveConflict(branch: string, resolved: boolean): Promise<void> {
+    await this.updateCherryPickState({
+      inProgress: false,
+      branch,
+      commit: '',
+      hasConflicts: false,
+      success: resolved
+    });
+
+    this.conflictResolutionEmitter.fire({
+      resolved,
+      branch
+    });
   }
 
   async updateBranchCreationState(status: {
