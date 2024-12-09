@@ -588,56 +588,83 @@ export class GitUtils {
     return output.split("\n").filter((org) => org.trim());
   }
 
-  async deleteBranchSafely(branchName: string, force: boolean) {
+  async deleteBranchSafely(
+    branchName: string, 
+    force: boolean,
+    options: { local?: boolean; remote?: boolean } = { local: true }
+  ): Promise<void> {
     if (branchName === "main" || branchName === "master") {
       throw new Error("Cannot delete main/master branch");
     }
-    await this.deleteBranch(branchName, force);
-  }
-
-  async performCleanup(state: CleanupState): Promise<void> {
+  
     try {
-      // 1. Abort any in-progress operations
-      const status = await this.getStatus();
-      if (status.includes("cherry-pick")) {
-        await this.abortCherryPick();
+      // Handle local branch deletion
+      if (options.local) {
+        await this.deleteBranch(branchName, force);
       }
-
-      // 2. Reset working directory
-      await this.resetHard();
-
-      // 3. Delete local branch - with safety check
-      if (await this.localBranchExists(state.branch)) {
-        const currentBranch = await this.getCurrentBranch();
-        if (currentBranch === state.branch) {
-          await this.checkout("main");
-        }
-        await this.deleteBranchSafely(state.branch, state.force ?? true);
-      }
-
-      // 4. Delete remote branch if exists
-      if (state.remoteBranch) {
-        const remoteExists = await this.remoteBranchExists(state.branch);
+  
+      // Handle remote branch deletion
+      if (options.remote) {
+        const remoteExists = await this.remoteBranchExists(branchName);
         if (remoteExists) {
-          await this.deleteRemoteBranch(state.branch);
+          await this.deleteRemoteBranch(branchName);
         }
       }
-
-      // 5. Close PR if exists
-      if (state.pr?.number && state.pr?.repo) {
-        await this.editPr({
-          ...state.pr,
-          state: "closed",
-        });
-      }
-
-      // 6. Restore original branch
-      await this.checkout(state.originalBranch);
-    } catch (error) {
-      console.error("Cleanup failed:", error);
-      throw new Error(this.strings.cleanup_failed);
+    } catch (error: any) {
+      throw new Error(`Failed to delete branch ${branchName}: ${error.message}`);
     }
   }
+
+    async performCleanup(state: CleanupState): Promise<void> {
+      try {
+        // 1. Get default branch first
+        const remoteUrl = await this.getRemoteUrl();
+        const repoName = remoteUrl.match(/github\.com[:/](.+?)(?:\.git)?$/)?.[1] || '';
+        const defaultBranch = await this.getDefaultBranch(repoName);
+        
+        // 2. Abort any in-progress operations
+        const status = await this.getStatus();
+        if (status.includes("cherry-pick")) {
+          await this.abortCherryPick();
+        }
+    
+        // 3. Reset working directory
+        await this.resetHard();
+    
+        // 4. Switch to default branch BEFORE cleanup
+        await this.checkout(defaultBranch);
+    
+        // 5. Check branch existence
+        const [localExists, remoteExists] = await Promise.all([
+          this.localBranchExists(state.branch),
+          this.remoteBranchExists(state.branch)
+        ]);
+    
+        // 6. Handle branch cleanup
+        if (localExists || remoteExists) {
+          await this.deleteBranchSafely(state.branch, state.force ?? true, {
+            local: localExists,
+            remote: remoteExists
+          });
+        }
+    
+        // 7. Handle PR if needed
+        if (state.pr?.number && state.pr?.repo) {
+          await this.editPr({
+            ...state.pr,
+            state: "closed",
+          });
+        }
+    
+        // 8. Return to original branch if it's not the one we just deleted
+        if (state.originalBranch !== state.branch) {
+          await this.checkout(state.originalBranch);
+        }
+      } catch (error) {
+        console.error("Cleanup failed:", error);
+        throw new Error(this.strings.cleanup_failed);
+      }
+    }
 
   async fetchGitHubUsers(repoName: string): Promise<GitHubUser[]> {
     try {
@@ -720,4 +747,69 @@ export class GitUtils {
       }
     }
   }
+
+    // Add to GitUtils class
+    async pullLatest(branch?: string): Promise<void> {
+      try {
+        // Get current workspace repo name and default branch if no branch specified
+        let targetBranch = branch;
+        if (!targetBranch) {
+          const remoteUrl = await this.getRemoteUrl();
+          const repoName = remoteUrl.match(/github\.com[:/](.+?)(?:\.git)?$/)?.[1] || '';
+          targetBranch = await this.getDefaultBranch(repoName);
+        }
+        
+        // Fetch all changes
+        await this.fetchAll();
+        
+        // Checkout and pull
+        await this.checkout(targetBranch);
+        await this.execCommand(`git pull origin ${targetBranch}`);
+        
+        console.log(`Successfully pulled latest changes from ${targetBranch}`);
+      } catch (error) {
+        console.error("Error pulling latest changes:", error);
+        throw new Error(this.strings.git_error_pull);
+      }
+    }
+
+    async stashChanges(message?: string): Promise<void> {
+      const cmd = message ? 
+        `git stash push -m "${message}"` : 
+        'git stash push';
+      await this.execCommand(cmd);
+    }
+    
+    async popStash(): Promise<void> {
+      await this.execCommand('git stash pop');
+    }
+
+    async validateAndFetchCommit(commit: string): Promise<void> {
+      const commitExists = await this.validateCommitExists(commit);
+      if (!commitExists) {
+        try {
+          await this.fetch(commit);
+          const exists = await this.validateCommitExists(commit);
+          if (!exists) {
+            throw new Error(`Commit ${commit} not found`);
+          }
+        } catch (error) {
+          throw new Error(`Failed to fetch commit ${commit}`);
+        }
+      }
+    }
+  
+    async handleGitError(
+      error: any,
+      branch: string,
+      originalBranch: string,
+      force: boolean = true
+    ): Promise<void> {
+      console.error('Git operation failed:', error);
+      await this.performCleanup({
+        branch,
+        originalBranch,
+        force
+      });
+    }
 }
