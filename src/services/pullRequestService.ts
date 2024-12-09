@@ -276,9 +276,6 @@ export class PullRequestService {
         }
       }
       prCreatedSuccessfully = true;
-
-      // Update all PRs with complete summary
-      await this.updateAllPRsWithSummary();
     } catch (error: any) {
       await this.gitUtils.performCleanup({
         branch,
@@ -293,7 +290,7 @@ export class PullRequestService {
     }
   }
 
-  private async updateAllPRsWithSummary(): Promise<void> {
+  async updateAllPRsWithSummary(): Promise<void> {
     const summaryHeader = this.strings.summary_header;
     const summaryLines = [
       "\n\n---",
