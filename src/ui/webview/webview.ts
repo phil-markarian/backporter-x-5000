@@ -44,9 +44,9 @@ declare function acquireVsCodeApi(): any;
       case "conflictState":
         const { hasConflicts, files } = message.payload;
         if (hasConflicts) {
-          setLoading(true); // Keep button in loading state
+          setLoading({ isLoading: false }); // Keep button in loading state
         } else {
-          setLoading(false);
+          setLoading({ isLoading: false });
         }
         break;
 
@@ -511,14 +511,21 @@ declare function acquireVsCodeApi(): any;
     setTimeout(() => successDiv.remove(), 5000);
   }
 
-  function setLoading(isLoading: boolean) {
-    const submitButton = document.getElementById(
-      "submitButton",
-    ) as HTMLButtonElement;
+  function setLoading({ isLoading, message }: { isLoading: boolean; message?: string }) {
+    const submitButton = document.getElementById("submitButton") as HTMLButtonElement;
+    if (!submitButton) return;
+  
     submitButton.disabled = isLoading;
-    submitButton.textContent = isLoading
-      ? strings.processing_label
+    submitButton.textContent = isLoading 
+      ? (message || strings.processing_label) // Use provided message or fallback
       : strings.submit_button;
+  
+    // Optional: Add loading class for visual feedback
+    if (isLoading) {
+      submitButton.classList.add('loading');
+    } else {
+      submitButton.classList.remove('loading');
+    }
   }
 
   function showValidationError(message: string) {

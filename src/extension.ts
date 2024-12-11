@@ -7,9 +7,9 @@ import { GitBranchService } from "./services/gitBranchService";
 import { LanguageService } from "./services/languageService";
 import { WebviewService } from "./services/webviewService";
 import { PullRequestService } from "./services/pullRequestService";
-import { ProgressManagerService } from "./services/progressManagerService";
+import { UINotificationService } from "./services/uiNotificationService";
 import { MessageHandlerService } from "./services/messageHandlerService";
-import { UIService } from "./services/uiService";
+import { UIInteractionService } from "./services/uiInteractionService";
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize core services
@@ -22,9 +22,9 @@ export function activate(context: vscode.ExtensionContext) {
     context
   );
 
-  const progressManagerService = new ProgressManagerService(languageService, stateService);
+  const progressManagerService = new UINotificationService(languageService, stateService);
 
-  const uiService = new UIService(gitUtils, languageService);
+  const uiService = new UIInteractionService(gitUtils, languageService);
 
   const gitBranchService = new GitBranchService(
     gitUtils,

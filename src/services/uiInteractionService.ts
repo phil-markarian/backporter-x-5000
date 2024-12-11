@@ -5,7 +5,7 @@ import { WorkspaceService } from './workspaceService';
 import { LanguageService } from './languageService';
 import { ConflictFile } from '../types';
 
-export class UIService {
+export class UIInteractionService {
   private workspaceService: WorkspaceService;
   private strings: any;
 

@@ -5,7 +5,7 @@ import { LanguageService } from "./languageService";
 import { PullRequestService } from "./pullRequestService";
 import { MessageType, WebviewMessage } from "../types";
 import { WebviewService } from "./webviewService";
-import { ProgressManagerService } from "./progressManagerService";
+import { UINotificationService } from "./uiNotificationService";
 import { GitBranchService } from "./gitBranchService";
 
 export class MessageHandlerService {
@@ -14,7 +14,7 @@ export class MessageHandlerService {
     private readonly gitUtils: GitUtils,
     private readonly languageService: LanguageService,
     private readonly webviewService: WebviewService,
-    private readonly progressManagerService: ProgressManagerService,
+    private readonly uiNotificationService: UINotificationService,
     private readonly gitBranchService: GitBranchService,
     private readonly pullRequestServiceFactory: (repoName: string) => Promise<PullRequestService>
   ) {}
@@ -116,7 +116,7 @@ export class MessageHandlerService {
     }
   } catch (error: any) {
     console.error("[MessageHandler] Error:", error);
-    this.progressManagerService.showError(error);
+    this.uiNotificationService.showError(error);
     throw error;
   }
 }
@@ -176,7 +176,7 @@ export class MessageHandlerService {
           });
         } catch (error: any) {
           console.error("[LoadSavedVersions] Error:", error);
-          this.progressManagerService.showError(error);
+          this.uiNotificationService.showError(error);
           throw error;
         }
       }
@@ -200,7 +200,7 @@ export class MessageHandlerService {
       });
     } catch (error: any) {
       console.error("[DeleteVersion] Error:", error);
-      this.progressManagerService.showError(error);
+      this.uiNotificationService.showError(error);
       throw error;
     }
   }
@@ -215,6 +215,9 @@ export class MessageHandlerService {
     const finalRepoName = formData.newRepoName.trim() || formData.repoName;
   
     try {
+      // Set loading state BEFORE validation
+      await this.uiNotificationService.startOperation();
+
       // Validate and save initial data
       await this.validateFormSubmission(finalRepoName, formData.versions, formData.prUrl);
       
@@ -229,7 +232,7 @@ export class MessageHandlerService {
       const prService = await this.pullRequestServiceFactory(finalRepoName);
 
       // Track progress for backport process
-      await this.progressManagerService.trackProgress({
+      await this.uiNotificationService.trackProgress({
         title: "backport_starting",
         operation: async (progress) => {
           let completedVersions = 0;
@@ -237,7 +240,7 @@ export class MessageHandlerService {
   
           for (const version of inputVersions) {
             try {
-              this.progressManagerService.updateProgress(
+              this.uiNotificationService.updateProgress(
                 (completedVersions / totalVersions) * 100,
                 this.languageService.getString("progress_version_processing")
                   .replace("{0}", version)
@@ -279,7 +282,7 @@ export class MessageHandlerService {
           await prService.updateAllPRsWithSummary();
   
           if (completedVersions > 0) {
-            this.progressManagerService.showSuccess(
+            this.uiNotificationService.showSuccess(
               this.languageService.getString("backport_success")
             );
           } else {
@@ -288,7 +291,7 @@ export class MessageHandlerService {
         }
       });
     } catch (error: any) {
-      this.progressManagerService.showError(error);
+      this.uiNotificationService.showError(error);
     }
   }
 

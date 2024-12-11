@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { LanguageService } from './languageService';
 import { StateService } from './stateService';
 
-export class ProgressManagerService {
+export class UINotificationService {
   private activeProgress?: vscode.Progress<{ message?: string; increment?: number }>;
   private panel?: vscode.WebviewPanel;
 
@@ -12,6 +12,32 @@ export class ProgressManagerService {
   ) {
     // Subscribe to conflict state changes
     this.stateService.onConflictStateChanged(this.handleConflictStateChange.bind(this));
+  }
+
+  async startOperation() {
+    if (this.isPanelActive(this.panel)) {
+      // Immediately send loading state to webview
+      this.panel!.webview.postMessage({ 
+        type: 'loading', 
+        payload: { 
+          isLoading: true,
+          message: this.languageService.getString("loading_text")
+        }
+      });
+    }
+  }
+
+
+  async endOperation() {
+    if (this.isPanelActive(this.panel)) {
+      this.panel!.webview.postMessage({ 
+        type: 'loading', 
+        payload: { 
+          isLoading: false,
+          message: ''
+        }
+      });
+    }
   }
 
   setPanel(panel: vscode.WebviewPanel | undefined) {
@@ -31,6 +57,7 @@ export class ProgressManagerService {
     title: string,
     operation: (progress: vscode.Progress<{ message?: string; increment?: number }>) => Promise<T>
   }): Promise<T> {
+
     return vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
       title: this.languageService.getString(options.title),
@@ -80,12 +107,12 @@ export class ProgressManagerService {
 
   showError(error: Error) {
     console.error(error);
-    this.sendWebviewMessage('loading', false);
+    this.endOperation();
     this.sendWebviewMessage('error', error.message);
   }
 
   showSuccess(message: string) {
-    this.sendWebviewMessage('loading', false);
+    this.endOperation();
     this.sendWebviewMessage('success', message);
   }
 }

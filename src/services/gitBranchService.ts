@@ -5,7 +5,7 @@ import { WorkspaceService } from "./workspaceService";
 import { StateService } from "./stateService";
 import { LanguageService } from "./languageService";
 import { BranchCreationResult } from "../types";
-import { UIService } from "./uiService";
+import { UIInteractionService} from "./uiInteractionService";
 
 export class GitBranchService {
   private workspaceService: WorkspaceService;
@@ -15,7 +15,7 @@ export class GitBranchService {
     private readonly gitUtils: GitUtils,
     private readonly stateService: StateService,
     private readonly languageService: LanguageService,
-    private readonly uiService: UIService
+    private readonly uiInteractionService: UIInteractionService
   ) {
     this.workspaceService = WorkspaceService.getInstance();
     this.strings = this.languageService.getStringsForLanguage(
@@ -107,7 +107,7 @@ export class GitBranchService {
     
     try {
       // Watch for resolution via pop up (this now handles file opening too)
-      const conflictResolved = await this.uiService.watchConflictedFiles(conflictedFiles);
+      const conflictResolved = await this.uiInteractionService.watchConflictedFiles(conflictedFiles);
   
       if (conflictResolved) {
         await this.completeConflictResolution(branchName);
