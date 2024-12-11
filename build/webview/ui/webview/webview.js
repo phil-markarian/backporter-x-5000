@@ -36,10 +36,10 @@
             case "conflictState":
                 const { hasConflicts, files } = message.payload;
                 if (hasConflicts) {
-                    setLoading(true); // Keep button in loading state
+                    setLoading({ isLoading: false }); // Keep button in loading state
                 }
                 else {
-                    setLoading(false);
+                    setLoading({ isLoading: false });
                 }
                 break;
             case "loading":
@@ -407,12 +407,21 @@
         form.insertBefore(successDiv, form.firstChild);
         setTimeout(() => successDiv.remove(), 5000);
     }
-    function setLoading(isLoading) {
+    function setLoading({ isLoading, message }) {
         const submitButton = document.getElementById("submitButton");
+        if (!submitButton)
+            return;
         submitButton.disabled = isLoading;
         submitButton.textContent = isLoading
-            ? strings.processing_label
+            ? (message || strings.processing_label) // Use provided message or fallback
             : strings.submit_button;
+        // Optional: Add loading class for visual feedback
+        if (isLoading) {
+            submitButton.classList.add('loading');
+        }
+        else {
+            submitButton.classList.remove('loading');
+        }
     }
     function showValidationError(message) {
         const versionsInput = document.getElementById("versions");
