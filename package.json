@@ -1,6 +1,8 @@
 {
   "name": "backporter-x-5000",
   "displayName": "Backporter X-5000",
+  "publisher": "PhilMarkarian",
+  "icon": "media/icon.jpeg",
   "description": "Extension to help backporting to previous versions based on a cherry picked commit",
   "version": "0.0.1",
   "engines": {

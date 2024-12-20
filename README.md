@@ -1,71 +1,56 @@
-# backporter-x-5000 README
+# BACKPORTER X-5000
 
-This is the README for your extension "backporter-x-5000". After writing up a brief description, we recommend including the following sections.
+Welcome one and all to the extension that will hopefully save you time and money because we all know that time is money unless you are a time lord. Backport to your hearts desire. Follow instructions or wacky things may happen such as a losing your sense of smell or your car keys, every sandwhich that you each will be bacon and lettuce but no tomoato, etc. You get the drift.
+
+WIP: You get what you paid for; absolutely nothing, nada, zilch, zero, goose egg, bupkis, diddly-squat, and a whole lot of nothing.
+
+
+
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Automizes the back porting process
+- Will cherry-pick a specified commit
+- Will create a PR for you with assignees and reviewers.
+- Will link back to the original PR in the new PR as well as any subsequent versions.
 
-For example if there is an image subfolder under your extension project workspace:
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+You will need to have the GitHub CLI tool installed and logged into your GitHub account.
 
-## Extension Settings
+## Using the extension
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+The extension is pretty easy to use. 
 
-For example:
+1. Open the extension in a folder that has a .git folder.
+2. Choose your repository. It will be saved upon reopening of the extesion if it is a proper repository.
+3. Choose your version for example release/v2.7. For each subsequent version you will need to use a comma like so, releave/v2.7, release/v2.8
+4. Find the commit of a feature that has been merged and paste it. WARNING: Currently only merged commits will work.
+5. Place the PR URL of the PR you wish to copy the contents of in the backported version. The refereced PR and each version specified in the backporting process will have a link at the bottom of the PR. 
+6. Start backporting. 
+7. Backporting will commence:
+-  IF you run into no conflicts, then it will create a PR for you. You will choose an asignee and a reviewer. You can choose either a person or a team. 
+- IF you run into conflicts, you will need to resolve them. Once you have resolved all conflicts press the yellowish-orange button in the status bar or press the red button if you feel like being spicy i.e. stop backporting.
+8. Rinse and repeat for every version.
+9. Backporting done and done. BROUGHT TO YOU BY BACKPORTER X-5000
 
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Extension may failure spectacularly if you decide to multitask during picking a reviewer/assignee. By that I mean, if you go out of focus by clicking on a dialogue or something it may cause the extension to fail. TIP: When backporting focus on backporting. This will be ironed out in the next version. Your patience is appreciated. 
+
+If you open the extension in a non-git repository, your backport will fail before it has even started so open your local folder that has a git repository, me hearties.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
-
 ### 1.0.0
 
-Initial release of ...
+Working version that is still rough around the edges but can cut like a hot knife through butter.
 
-### 1.0.1
-
-Fixed issue #.
 
 ### 1.1.0
 
-Added features X, Y, and Z.
+COMING SOON
 
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
