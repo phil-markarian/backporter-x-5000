@@ -4,7 +4,7 @@
   "publisher": "PhilMarkarian",
   "icon": "media/icon.jpeg",
   "description": "Extension to help backporting to previous versions based on a cherry picked commit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.93.0"
   },
